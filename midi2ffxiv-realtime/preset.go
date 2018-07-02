@@ -1,3 +1,5 @@
+// +build windows
+
 /*
    MIDI2FFXIV-Realtime
    Copyright (C) 2017-2018 Star Brilliant <m13253@hotmail.com>
@@ -21,8 +23,6 @@
    DEALINGS IN THE SOFTWARE.
 */
 
-// +build windows
-
 package main
 
 import (
@@ -37,7 +37,6 @@ type keybindingPreset struct {
 }
 
 type preset struct {
-	ChordTolerance     time.Duration
 	IdleDuration       time.Duration
 	MaxNoteDelay       time.Duration
 	SkillCooldown      time.Duration
@@ -46,7 +45,6 @@ type preset struct {
 }
 
 var defaultPreset = preset{
-	ChordTolerance:     40 * time.Millisecond,
 	IdleDuration:       1 * time.Second,
 	MaxNoteDelay:       400 * time.Millisecond,
 	SkillCooldown:      160 * time.Millisecond,

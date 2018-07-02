@@ -1,3 +1,5 @@
+// +build windows
+
 /*
    MIDI2FFXIV-Realtime
    Copyright (C) 2017-2018 Star Brilliant <m13253@hotmail.com>
@@ -20,8 +22,6 @@
    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
    DEALINGS IN THE SOFTWARE.
 */
-
-// +build windows
 
 package main
 
@@ -58,11 +58,8 @@ type application struct {
 	hMidiOut    uintptr
 	sysexBuffer [2]*winmm.MIDIHDR
 
-	pendingNotes      []*midiMessage
-	pendingNotesCond  *sync.Cond
-	pendingNotesMutex *sync.Mutex
-
-	lastNoteOn          time.Time
+	pendingNotes        chan *midiMessage
+	lastNoteOn          *midiMessage
 	pressedKeys         [256]bool
 	pressedKeysCount    int
 	isCtrlDown          bool
@@ -73,9 +70,8 @@ type application struct {
 }
 
 type midiMessage struct {
-	Time    time.Time
-	Msg     []byte
-	Expired bool
+	Time time.Time
+	Msg  []byte
 }
 
 func main() {
@@ -182,8 +178,7 @@ func (app *application) run(args []string) int {
 		}
 	}
 
-	app.pendingNotesMutex = new(sync.Mutex)
-	app.pendingNotesCond = sync.NewCond(app.pendingNotesMutex)
+	app.pendingNotes = make(chan *midiMessage, 256)
 	app.clearModifiersTimer = time.NewTimer(app.IdleDuration)
 	app.keysMutex = new(sync.Mutex)
 
@@ -208,14 +203,10 @@ func (app *application) run(args []string) int {
 }
 
 func (app *application) addNote(note []byte) {
-	app.pendingNotesMutex.Lock()
-	app.pendingNotes = append(app.pendingNotes, &midiMessage{
-		Time:    time.Now(),
-		Msg:     note,
-		Expired: false,
-	})
-	app.pendingNotesCond.Signal()
-	app.pendingNotesMutex.Unlock()
+	app.pendingNotes <- &midiMessage{
+		Time: time.Now(),
+		Msg:  note,
+	}
 }
 
 func (app *application) clearModifiers() {
@@ -276,49 +267,29 @@ func (app *application) clearModifiers() {
 }
 
 func (app *application) consumeMidiMessage() {
-	app.lastNoteOn = time.Now().Add(app.SkillCooldown * -2)
 	for {
-		app.pendingNotesMutex.Lock()
-		for len(app.pendingNotes) == 0 {
-			app.pendingNotesCond.Wait()
-		}
+		nextNote := <-app.pendingNotes
 		now := time.Now()
-		bestNote := app.pendingNotes[0]
-		for _, v := range app.pendingNotes {
-			if (v.Msg[0] == 0x90 || v.Msg[0] == 0xa0) && now.Sub(v.Time) > app.MaxNoteDelay {
-				v.Expired = true
-				continue
-			}
-			if (bestNote.Msg[0] == 0x80 || bestNote.Msg[0] == 0x90 || bestNote.Msg[0] == 0xa0) && (v.Msg[0] == 0x80 || v.Msg[0] == 0x90 || v.Msg[0] == 0xa0) {
-				timeDifference := v.Time.Sub(bestNote.Time)
-				if timeDifference <= app.ChordTolerance && v.Msg[1] < bestNote.Msg[1] {
-					bestNote = v
-					continue
-				}
-			}
-		}
-		app.pendingNotesMutex.Unlock()
 
-		if bestNote.Msg[0] == 0x90 && now.Sub(app.lastNoteOn) < app.SkillCooldown {
-			time.Sleep(app.lastNoteOn.Add(app.SkillCooldown).Sub(now))
+		if (nextNote.Msg[0] == 0x90 || nextNote.Msg[0] == 0xa0) && now.Sub(nextNote.Time) > app.MaxNoteDelay {
 			continue
 		}
 
-		app.forwardMidiMessage(bestNote)
-		if bestNote.Msg[0] == 0x80 || bestNote.Msg[0] == 0x90 {
-			app.produceKeystroke(bestNote)
+		if app.lastNoteOn != nil && ((nextNote.Msg[0] == 0x80 && nextNote.Msg[1] == app.lastNoteOn.Msg[1]) || nextNote.Msg[0] == 0x90) && now.Sub(app.lastNoteOn.Time) < app.SkillCooldown {
+			time.Sleep(app.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
+			now = time.Now()
 		}
-		bestNote.Expired = true
 
-		app.pendingNotesMutex.Lock()
-		pendingNotesNew := []*midiMessage{}
-		for _, i := range app.pendingNotes {
-			if !i.Expired {
-				pendingNotesNew = append(pendingNotesNew, i)
-			}
+		app.forwardMidiMessage(nextNote)
+
+		if nextNote.Msg[0] == 0x80 || nextNote.Msg[0] == 0x90 {
+			app.produceKeystroke(nextNote)
 		}
-		app.pendingNotes = pendingNotesNew
-		app.pendingNotesMutex.Unlock()
+
+		if nextNote.Msg[0] == 0x90 {
+			nextNote.Time = now
+			app.lastNoteOn = nextNote
+		}
 	}
 }
 
@@ -626,7 +597,6 @@ func (app *application) produceKeystroke(note *midiMessage) {
 		})
 		app.pressedKeys[keybind.VirtualKeyCode] = true
 		app.pressedKeysCount++
-		app.lastNoteOn = time.Now()
 		app.clearModifiersTimer.Stop()
 	} else if note.Msg[0] == 0x80 {
 		keybind := app.Keybinding[int(note.Msg[1])]

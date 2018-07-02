@@ -1,3 +1,5 @@
+// +build windows
+
 /*
    MIDI2FFXIV-Realtime
    Copyright (C) 2017-2018 Star Brilliant <m13253@hotmail.com>
@@ -20,8 +22,6 @@
    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
    DEALINGS IN THE SOFTWARE.
 */
-
-// +build windows
 
 package kernel32
 
