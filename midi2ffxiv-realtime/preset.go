@@ -47,7 +47,7 @@ type preset struct {
 var defaultPreset = preset{
 	IdleDuration:       1 * time.Second,
 	MaxNoteDelay:       400 * time.Millisecond,
-	SkillCooldown:      160 * time.Millisecond,
+	SkillCooldown:      140 * time.Millisecond,
 	MinTriggerVelocity: 16,
 	Keybinding: [128]keybindingPreset{
 		0x30: {'Q', true, false, false},
