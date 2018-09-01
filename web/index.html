@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MIDI2FFXIV Control Panel</title>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css" integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css" integrity="sha384-b92sF+wDNTHrfEtRaYo+EpcA8FUyHOSXrdxKc9XB9kaaX1rSQAgMevW6cYeE5Bdv" crossorigin="anonymous" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="flexbody">
+    <header>
+        <div class="container">
+            <h1>MIDI2FFXIV Control Panel</h1>
+        </div>
+    </header>
+    <main>
+        <div class="container pure-g pure-form">
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">MIDI Input Device</h2>
+                    <label class="pure-u-1 padding-input">Device list</label>
+                    <br />
+                    <input class="pure-u-1 pure-button round-top" type="button" value="Refresh" />
+                    <br />
+                    <select class="pure-u-1 round-bottom" size="9">
+                        <option selected="selected">(None)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">MIDI Output Device</h2>
+                    <label class="pure-u-1 padding-input">Device list</label>
+                    <br />
+                    <input class="pure-u-1 pure-button round-top" type="button" value="Refresh" />
+                    <br />
+                    <select class="pure-u-1 round-bottom" size="9">
+                        <option selected="selected">(None)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">MIDI Instrument</h2>
+                    <label class="pure-u-1-3 padding-input">Bank</label>
+                    <label class="pure-u-1-3 padding-input">Patch</label>
+                    <label class="pure-u-1-3 padding-input">Transpose</label>
+                    <br />
+                    <input class="pure-u-1-3 round-nw" placeholder="1" />
+                    <input class="pure-u-1-3 round-none" placeholder="1" />
+                    <input class="pure-u-1-3 round-ne" placeholder="+12" />
+                    <br />
+                    <select class="pure-u-1-1 round-bottom" size="9">
+                        <option selected="selected">Harp</option>
+                        <option>Grand Piano</option>
+                        <option>Steel Guitar / Lute</option>
+                        <option>Pizzcato / Fiddle</option>
+                        <option>Flute</option>
+                        <option>Oboe</option>
+                        <option>Clarinet</option>
+                        <option>Piccolo / Fife</option>
+                        <option>Panpipes / Panflute</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">Time Synchronization</h2>
+                    <label class="pure-u-1 padding-input">NTP Server</label>
+                    <input class="pure-u-3-4 round-left" placeholder="pool.ntp.org" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" value="Sync" />
+                    <br />
+                    <label class="pure-u-1 padding-input">Current time:</label>
+                    <input class="pure-u-3-4 round-left" placeholder="-- : -- : --" readonly="readonly" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" value="Copy" />
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">Schedule Playback</h2>
+                    <label class="pure-u-1 padding-input">Start Time</label>
+                    <input class="pure-u-3-4 round-left" placeholder="-- : -- : --" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" value="Set" />
+                    <br />
+                    <label class="pure-u-1 padding-input">
+                        <input type="checkbox" /> Loop every
+                    </label>
+                    <input class="pure-u-1" placeholder="-- : -- : --" />
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">MIDI Playback</h2>
+                    <label class="pure-u-1-2 padding-input">Track Number</label>
+                    <label class="pure-u-1-2 padding-input">Offset (ms)</label>
+                    <br />
+                    <input class="pure-u-1-2 round-left" placeholder="1" />
+                    <input class="pure-u-1-2 round-right" placeholder="0" />
+                    <br />
+                    <label class="pure-u-1 padding-input">MIDI File</label>
+                    <input class="pure-u-1" type="file" accept="audio/midi" />
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            &copy; 2018 StarBrilliant. Made with &#9829;&#65038; and <a href="https://github.com/m13253/midi2ffxiv">source code</a> available.
+        </div>
+    </footer>
+    <script language="javascript">
+        (function() {
+            var el = document.createElement("link");
+            el.setAttribute("rel", "stylesheet");
+            el.setAttribute("href", "https://fonts.googleapis.com/css?family=Lato:400");
+            el.setAttribute("crossorigin", "anonymous");
+            document.head.appendChild(el);
+        })();
+    </script>
+</body>
+
+</html>
