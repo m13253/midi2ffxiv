@@ -50,9 +50,9 @@
                     <label class="pure-u-1-3 padding-input">Patch</label>
                     <label class="pure-u-1-3 padding-input">Transpose</label>
                     <br />
-                    <input class="pure-u-1-3 round-nw" placeholder="1" />
-                    <input class="pure-u-1-3 round-none" placeholder="1" />
-                    <input class="pure-u-1-3 round-ne" placeholder="+12" />
+                    <input class="pure-u-1-3 round-nw" type="number" min="0" max="16383" placeholder="0" value="0" />
+                    <input class="pure-u-1-3 round-none" type="number" min="1" max="128" placeholder="47" value="47" />
+                    <input class="pure-u-1-3 round-ne" type="number" min="-120" max="120" step="12" placeholder="0" value="0" />
                     <br />
                     <select class="pure-u-1-1 round-bottom" size="9">
                         <option selected="selected">Harp</option>
@@ -75,13 +75,26 @@
                     <input class="pure-u-1-4 pure-button round-right" type="button" value="Sync" />
                     <br />
                     <label class="pure-u-1 padding-input">Current time:</label>
-                    <input class="pure-u-3-4 round-left" placeholder="-- : -- : --" readonly="readonly" />
+                    <input class="pure-u-3-4 round-left" placeholder="-- : -- : -- . --- (&#177;0ms)" readonly="readonly" />
                     <input class="pure-u-1-4 pure-button round-right" type="button" value="Copy" />
                 </div>
             </div>
             <div class="pure-u-1 pure-u-md-1-3">
                 <div class="margin-0_5 pure-g">
-                    <h2 class="pure-u-1">Schedule Playback</h2>
+                    <h2 class="pure-u-1">MIDI Playback</h2>
+                    <label class="pure-u-1-2 padding-input">Track Number</label>
+                    <label class="pure-u-1-2 padding-input">Offset (ms)</label>
+                    <br />
+                    <input class="pure-u-1-2 round-left" type="number" min="1" max="65535" placeholder="1" value="1" />
+                    <input class="pure-u-1-2 round-right" type="number" step="any" placeholder="0" value="0" />
+                    <br />
+                    <label class="pure-u-1 padding-input">MIDI File</label>
+                    <input class="pure-u-1" type="file" accept="audio/midi" />
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">Scheduler</h2>
                     <label class="pure-u-1 padding-input">Start Time</label>
                     <input class="pure-u-3-4 round-left" placeholder="-- : -- : --" />
                     <input class="pure-u-1-4 pure-button round-right" type="button" value="Set" />
@@ -92,19 +105,6 @@
                     <input class="pure-u-1" placeholder="-- : -- : --" />
                 </div>
             </div>
-            <div class="pure-u-1 pure-u-md-1-3">
-                <div class="margin-0_5 pure-g">
-                    <h2 class="pure-u-1">MIDI Playback</h2>
-                    <label class="pure-u-1-2 padding-input">Track Number</label>
-                    <label class="pure-u-1-2 padding-input">Offset (ms)</label>
-                    <br />
-                    <input class="pure-u-1-2 round-left" placeholder="1" />
-                    <input class="pure-u-1-2 round-right" placeholder="0" />
-                    <br />
-                    <label class="pure-u-1 padding-input">MIDI File</label>
-                    <input class="pure-u-1" type="file" accept="audio/midi" />
-                </div>
-            </div>
         </div>
     </main>
     <footer>
@@ -113,7 +113,7 @@
         </div>
     </footer>
     <script language="javascript">
-        (function() {
+        (function () {
             var el = document.createElement("link");
             el.setAttribute("rel", "stylesheet");
             el.setAttribute("href", "https://fonts.googleapis.com/css?family=Lato:400");
