@@ -1,7 +1,7 @@
 // +build windows
 
 /*
-   MIDI2FFXIV-Realtime
+   MIDI2FFXIV
    Copyright (C) 2017-2018 Star Brilliant <m13253@hotmail.com>
 
    Permission is hereby granted, free of charge, to any person obtaining a
@@ -80,7 +80,7 @@ func main() {
 }
 
 func (app *application) run(args []string) int {
-	fmt.Println("MIDI2FFXIV-Realtime")
+	fmt.Println("MIDI2FFXIV")
 	fmt.Println("Copyright (c) 2018 Star Brilliant")
 	fmt.Println("=================================")
 	fmt.Println()
