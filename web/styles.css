@@ -100,7 +100,8 @@ main .pure-form select[size] {
 }
 
 main .pure-form input[type=file] {
-    padding: 0.5em 0em;
+    min-height: calc(2.2em + 2px);
+    max-height: calc(2.2em + 2px);
 }
 
 footer {
