@@ -37,23 +37,22 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"./kernel32"
 	"./user32"
 	"./winmm"
-	"golang.org/x/sys/windows"
 )
 
 type application struct {
 	preset
 
-	MidiInDevice   uint32
-	MidiOutDevice  *uint32
-	MidiInstrument uint32
-	MidiTranspose  int
+	MidiInDevice      int
+	MidiOutDevice     int
+	MidiOutInstrument uint32
+	MidiOutTranspose  int
 
 	bQuitting   bool
+	hWnd        uintptr
 	hMidiIn     uintptr
 	hMidiOut    uintptr
 	sysexBuffer [2]*winmm.MIDIHDR
@@ -84,10 +83,6 @@ func (app *application) run(args []string) int {
 	fmt.Println("Copyright (c) 2018 Star Brilliant")
 	fmt.Println("=================================")
 	fmt.Println()
-	if len(os.Args) <= 1 {
-		app.printUsage()
-		return app.delayReturn(0)
-	}
 	err := app.parseArgs(args)
 	if err != nil {
 		log.Println("Error: ", err)
@@ -97,85 +92,15 @@ func (app *application) run(args []string) int {
 	runtime.LockOSThread()
 	_ = kernel32.SetPriorityClass(kernel32.GetCurrentProcess(), kernel32.HIGH_PRIORITY_CLASS)
 
-	deviceName, _ := getMidiInDevName(uintptr(app.MidiInDevice))
-	fmt.Printf("MIDI IN device:  %s\n", deviceName)
-	if app.MidiOutDevice != nil {
-		deviceName, _ = getMidiOutDevName(uintptr(*app.MidiOutDevice))
-		fmt.Printf("MIDI OUT device: %s\n", deviceName)
-	} else {
-		fmt.Println("MIDI OUT device: (none)")
-	}
-	fmt.Printf("MIDI instrument: %d:%d\n", (app.MidiInstrument>>8)&0x3fff, (app.MidiInstrument&0x7f)+1)
-	fmt.Printf("MIDI transpose:  %+d\n", app.MidiTranspose)
-	fmt.Println()
-	fmt.Println("Press Ctrl-C to exit.")
-	fmt.Println()
-
-	hWndClass, err := user32.RegisterClassEx(0, app.windowCallback, 0, 0, 0, 0, 0, 0, 0, "midi2ffxiv-realtime", 0)
+	hWndClass, err := user32.RegisterClassEx(0, app.onMidiInMessage, 0, 0, 0, 0, 0, 0, 0, "midi2ffxiv", 0)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return int(err.(syscall.Errno))
 	}
-	hWnd, err := user32.CreateWindowEx(0, uintptr(hWndClass), "midi2ffxiv-realtime", 0, 0, 0, 0, 0, user32.HWND_MESSAGE, 0, 0, nil)
+	app.hWnd, err = user32.CreateWindowEx(0, uintptr(hWndClass), "midi2ffxiv", 0, 0, 0, 0, 0, user32.HWND_MESSAGE, 0, 0, nil)
 	if err != nil {
 		fmt.Println("Error: ", err)
 		return int(err.(syscall.Errno))
-	}
-
-	app.hMidiIn, err = winmm.MidiInOpen(app.MidiInDevice, hWnd, 0, winmm.CALLBACK_WINDOW|winmm.MIDI_IO_STATUS)
-	if err != nil {
-		fmt.Println("Error: ", err)
-		return int(err.(winmm.MidiInError))
-	}
-	defer winmm.MidiInClose(app.hMidiIn)
-
-	for i := range app.sysexBuffer {
-		app.sysexBuffer[i] = &winmm.MIDIHDR{
-			LpData:         &new([512]byte)[0],
-			DwBufferLength: 512,
-		}
-		err = winmm.MidiInPrepareHeader(app.hMidiIn, app.sysexBuffer[i])
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return int(err.(winmm.MidiInError))
-		}
-		err = winmm.MidiInAddBuffer(app.hMidiIn, app.sysexBuffer[i])
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return int(err.(winmm.MidiInError))
-		}
-		defer winmm.MidiInUnprepareHeader(app.hMidiIn, app.sysexBuffer[i])
-	}
-
-	err = winmm.MidiInStart(app.hMidiIn)
-	if err != nil {
-		fmt.Println("Error: ", err)
-		return int(err.(winmm.MidiInError))
-	}
-
-	if app.MidiOutDevice != nil {
-		app.hMidiOut, err = winmm.MidiOutOpen(*app.MidiOutDevice, 0, 0, winmm.CALLBACK_NULL)
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return int(err.(winmm.MidiOutError))
-		}
-		defer winmm.MidiOutClose(app.hMidiOut)
-
-		err = winmm.MidiOutShortMsg(app.hMidiOut, 0x0000b0|((app.MidiInstrument<<8)&0x7f0000))
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return int(err.(winmm.MidiOutError))
-		}
-		err = winmm.MidiOutShortMsg(app.hMidiOut, 0x0020b0|((app.MidiInstrument<<1)&0x7f0000))
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return int(err.(winmm.MidiOutError))
-		}
-		err = winmm.MidiOutShortMsg(app.hMidiOut, 0x00c0|((app.MidiInstrument<<8)&0x7f00))
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return int(err.(winmm.MidiOutError))
-		}
 	}
 
 	app.pendingNotes = make(chan *midiMessage, 256)
@@ -187,7 +112,7 @@ func (app *application) run(args []string) int {
 	go app.clearModifiers()
 
 	for !app.bQuitting {
-		bResult, lpMsg, err := user32.GetMessage(hWnd, 0, 0)
+		bResult, lpMsg, err := user32.GetMessage(app.hWnd, 0, 0)
 		if err != nil {
 			fmt.Println("Error: ", err)
 			os.Exit(int(err.(syscall.Errno)))
@@ -280,7 +205,10 @@ func (app *application) consumeMidiMessage() {
 			now = time.Now()
 		}
 
-		app.forwardMidiMessage(nextNote)
+		err := app.sendMidiOutMessage(nextNote)
+		if err != nil {
+			fmt.Println("Error: ", err)
+		}
 
 		if nextNote.Msg[0] == 0x80 || nextNote.Msg[0] == 0x90 {
 			app.produceKeystroke(nextNote)
@@ -310,102 +238,62 @@ func (app *application) delayReturn(code int) int {
 	return code
 }
 
-func (app *application) forwardMidiMessage(note *midiMessage) {
-	if app.MidiOutDevice == nil {
-		return
-	}
-	var err error
-	switch len(note.Msg) {
-	case 1:
-		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0]))
-	case 2:
-		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0])|(uint32(note.Msg[1])<<8))
-	case 3:
-		if note.Msg[0] == 0x80 || note.Msg[0] == 0x90 || note.Msg[0] == 0xa0 {
-			noteName := int(note.Msg[1]) + app.MidiTranspose
-			if noteName >= 0x00 || noteName <= 0x7f {
-				err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0])|(uint32(noteName)<<8)|(uint32(note.Msg[2])<<16))
-			}
-		} else {
-			err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0])|(uint32(note.Msg[1])<<8)|(uint32(note.Msg[2])<<16))
-		}
-	default:
-		buffer := new([512]byte)
-		midiHeader := &winmm.MIDIHDR{
-			LpData:         &buffer[0],
-			DwBufferLength: 512,
-		}
-		err = winmm.MidiOutPrepareHeader(app.hMidiOut, midiHeader)
-		if err != nil {
-			break
-		}
-		defer winmm.MidiOutUnprepareHeader(app.hMidiOut, midiHeader)
-		copy(buffer[:len(note.Msg)], note.Msg)
-		midiHeader.DwBytesRecorded = uint32(len(note.Msg))
-		err = winmm.MidiOutLongMsg(app.hMidiOut, midiHeader)
-	}
-	if err != nil {
-		fmt.Println("Error: ", err)
-	}
-}
-
 func (app *application) parseArgs(args []string) error {
 	app.preset = defaultPreset
-	app.MidiInDevice = 0
-	app.MidiOutDevice = nil
-	app.MidiInstrument = 46
-	app.MidiTranspose = 0
+	app.MidiInDevice = -1
+	app.MidiOutDevice = -1
+	app.MidiOutInstrument = 46
+	app.MidiOutTranspose = 0
 	if len(args) >= 2 {
-		value, err := strconv.ParseUint(args[1], 0, 32)
+		value, err := strconv.ParseInt(args[1], 0, 32)
 		if err != nil {
 			return err
 		}
-		app.MidiInDevice = uint32(value)
+		app.MidiInDevice = int(value)
 	}
 	if len(args) >= 3 {
-		value, err := strconv.ParseUint(args[2], 0, 32)
+		value, err := strconv.ParseInt(args[2], 0, 32)
 		if err != nil {
 			return err
 		}
-		app.MidiOutDevice = new(uint32)
-		*app.MidiOutDevice = uint32(value)
+		app.MidiOutDevice = int(value)
 	}
 	if len(args) == 4 {
 		switch strings.ToLower(args[3]) {
 		case "harp":
-			app.MidiInstrument = 46
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = 46
+			app.MidiOutTranspose = 0
 		case "grandpiano", "piano":
-			app.MidiInstrument = 0
-			app.MidiTranspose = 12
+			app.MidiOutInstrument = 0
+			app.MidiOutTranspose = 12
 		case "steelguitar", "lute":
-			app.MidiInstrument = 25
-			app.MidiTranspose = -12
+			app.MidiOutInstrument = 25
+			app.MidiOutTranspose = -12
 		case "pizzicato", "fiddle":
-			app.MidiInstrument = 45
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = 45
+			app.MidiOutTranspose = 0
 		case "flute":
-			app.MidiInstrument = 73
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = 73
+			app.MidiOutTranspose = 0
 		case "oboe":
-			app.MidiInstrument = 68
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = 68
+			app.MidiOutTranspose = 0
 		case "clarinet":
-			app.MidiInstrument = 71
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = 71
+			app.MidiOutTranspose = 0
 		case "piccolo", "fife":
-			app.MidiInstrument = 72
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = 72
+			app.MidiOutTranspose = 0
 		case "panpipes", "panflute":
-			app.MidiInstrument = 75
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = 75
+			app.MidiOutTranspose = 0
 		default:
 			value, err := strconv.ParseUint(args[3], 0, 32)
 			if err != nil {
 				return err
 			}
-			app.MidiInstrument = uint32(value - 1)
-			app.MidiTranspose = 0
+			app.MidiOutInstrument = uint32(value - 1)
+			app.MidiOutTranspose = 0
 		}
 	}
 	if len(args) >= 5 {
@@ -627,54 +515,4 @@ func (app *application) produceKeystroke(note *midiMessage) {
 		}
 		app.printPressedKeys()
 	}
-}
-
-func (app *application) windowCallback(hWnd uintptr, uMsg uint32, wParam, lParam uintptr) uintptr {
-	switch uMsg {
-	case winmm.MM_MIM_OPEN:
-	case winmm.MM_MIM_CLOSE:
-		fmt.Println("MIDI IN port disconnected, exiting.")
-		app.bQuitting = true
-	case winmm.MM_MIM_DATA, winmm.MM_MIM_MOREDATA:
-		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		app.processMidiMessage(midiMsg)
-	case winmm.MM_MIM_LONGDATA:
-		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
-		app.processMidiMessage(midiMsg)
-		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
-		if err != nil {
-			fmt.Println("Error: ", err)
-		}
-	case winmm.MM_MIM_ERROR:
-		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
-	case winmm.MM_MIM_LONGERROR:
-		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
-		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
-		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
-		if err != nil {
-			fmt.Println("Error: ", err)
-		}
-	default:
-		return user32.DefWindowProc(hWnd, uMsg, wParam, lParam)
-	}
-	return 0
-}
-
-func getMidiInDevName(uDeviceID uintptr) (string, error) {
-	lpMidiInCaps, err := winmm.MidiInGetDevCaps(uDeviceID)
-	if err != nil {
-		return fmt.Sprintf("(Error: %s)", err.Error()), err
-	}
-	return windows.UTF16ToString(lpMidiInCaps.SzPname[:]), nil
-}
-
-func getMidiOutDevName(uDeviceID uintptr) (string, error) {
-	lpMidiOutCaps, err := winmm.MidiOutGetDevCaps(uDeviceID)
-	if err != nil {
-		return fmt.Sprintf("(Error: %s)", err.Error()), err
-	}
-	return windows.UTF16ToString(lpMidiOutCaps.SzPname[:]), nil
 }

@@ -42,6 +42,10 @@ type preset struct {
 	SkillCooldown      time.Duration
 	MinTriggerVelocity uint8
 	Keybinding         [128]keybindingPreset
+
+	HTTPListenAddr string
+	HTTPUsername   string
+	HTTPPassword   string
 }
 
 var defaultPreset = preset{
@@ -91,4 +95,5 @@ var defaultPreset = preset{
 
 		0x54: {'I', false, false, true},
 	},
+	HTTPListenAddr: ":65300",
 }
