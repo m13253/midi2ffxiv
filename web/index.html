@@ -22,11 +22,11 @@
             <div class="pure-u-1 pure-u-md-1-3">
                 <div class="margin-0_5 pure-g">
                     <h2 class="pure-u-1">MIDI Input Device</h2>
-                    <label class="pure-u-1 padding-input">Input devices</label>
+                    <label class="pure-u-1 padding-input" for="midi-input-device">Input devices</label>
                     <br />
-                    <input class="pure-u-1 pure-button round-top" type="button" value="Refresh" />
+                    <input class="pure-u-1 pure-button round-top" type="button" id="midi-input-refresh" value="Refresh" />
                     <br />
-                    <select class="pure-u-1 round-bottom" size="9">
+                    <select class="pure-u-1 round-bottom" id="midi-input-device" name="midi-input-device" size="9">
                         <option selected="selected">(None)</option>
                     </select>
                 </div>
@@ -34,11 +34,11 @@
             <div class="pure-u-1 pure-u-md-1-3">
                 <div class="margin-0_5 pure-g">
                     <h2 class="pure-u-1">Local Synth Preview</h2>
-                    <label class="pure-u-1 padding-input">Output devices</label>
+                    <label class="pure-u-1 padding-input" for="midi-output-device">Output devices</label>
                     <br />
-                    <input class="pure-u-1 pure-button round-top" type="button" value="Refresh" />
+                    <input class="pure-u-1 pure-button round-top" type="button" id="midi-output-refresh" value="Refresh" />
                     <br />
-                    <select class="pure-u-1 round-bottom" size="9">
+                    <select class="pure-u-1 round-bottom" id="midi-output-device" name="midi-output-device" size="9">
                         <option selected="selected">(None)</option>
                     </select>
                 </div>
@@ -46,15 +46,15 @@
             <div class="pure-u-1 pure-u-md-1-3">
                 <div class="margin-0_5 pure-g">
                     <h2 class="pure-u-1">Synth Instrument</h2>
-                    <label class="pure-u-1-3 padding-input">Bank</label>
-                    <label class="pure-u-1-3 padding-input">Patch</label>
-                    <label class="pure-u-1-3 padding-input">Transpose</label>
+                    <label class="pure-u-1-3 padding-input" for="synth-bank">Bank</label>
+                    <label class="pure-u-1-3 padding-input" for="synth-patch">Patch</label>
+                    <label class="pure-u-1-3 padding-input" for="synth-transpose">Transpose</label>
                     <br />
-                    <input class="pure-u-1-3 round-nw" type="number" min="0" max="16383" placeholder="0" value="0" />
-                    <input class="pure-u-1-3 round-none" type="number" min="1" max="128" placeholder="47" value="47" />
-                    <input class="pure-u-1-3 round-ne" type="number" min="-120" max="120" step="12" placeholder="0" value="0" />
+                    <input class="pure-u-1-3 round-nw" type="number" id="synth-bank" name="synth-bank" min="0" max="16383" placeholder="0" value="0" />
+                    <input class="pure-u-1-3 round-none" type="number" id="synth-patch" name="synth-patch" min="1" max="128" placeholder="47" value="47" />
+                    <input class="pure-u-1-3 round-ne" type="number" id="synth-transpose" name="synth-transpose" min="-120" max="120" step="12" placeholder="0" value="0" />
                     <br />
-                    <select class="pure-u-1-1 round-bottom" size="9">
+                    <select class="pure-u-1-1 round-bottom" id="synth-instrument" size="9">
                         <option selected="selected">Harp</option>
                         <option>Grand Piano</option>
                         <option>Steel Guitar / Lute</option>
@@ -70,39 +70,39 @@
             <div class="pure-u-1 pure-u-md-1-3">
                 <div class="margin-0_5 pure-g">
                     <h2 class="pure-u-1">Time Synchronization</h2>
-                    <label class="pure-u-1 padding-input">NTP Server</label>
-                    <input class="pure-u-3-4 round-left" placeholder="pool.ntp.org" />
-                    <input class="pure-u-1-4 pure-button round-right" type="button" value="Sync" />
+                    <label class="pure-u-1 padding-input" for="ntp-server">NTP Server</label>
+                    <input class="pure-u-3-4 round-left" id="ntp-server" name="ntp-server" placeholder="pool.ntp.org" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="ntp-sync" value="Sync" />
                     <br />
-                    <label class="pure-u-1 padding-input">Current time:</label>
-                    <input class="pure-u-3-4 round-left" placeholder="-- : -- : -- . --- (&#177;0ms)" readonly="readonly" />
-                    <input class="pure-u-1-4 pure-button round-right" type="button" value="Copy" />
+                    <label class="pure-u-1 padding-input" for="current-time">Current time:</label>
+                    <input class="pure-u-3-4 round-left" id="current-time" name="current-time" placeholder="-- : -- : -- . --- (&#177;0ms)" readonly="readonly" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="current-time-copy" value="Copy" />
                 </div>
             </div>
             <div class="pure-u-1 pure-u-md-1-3">
                 <div class="margin-0_5 pure-g">
                     <h2 class="pure-u-1">MIDI File Playback</h2>
-                    <label class="pure-u-1 padding-input">MIDI File</label>
-                    <input class="pure-u-1" type="file" accept="audio/midi" />
+                    <label class="pure-u-1 padding-input" for="midi-file">MIDI File</label>
+                    <input class="pure-u-1" type="file" id="midi-file" name="midi-file" accept="audio/midi" />
                     <br />
-                    <label class="pure-u-1-2 padding-input">Track Number</label>
-                    <label class="pure-u-1-2 padding-input">Offset (ms)</label>
+                    <label class="pure-u-1-2 padding-input" for="midi-track-number">Track Number</label>
+                    <label class="pure-u-1-2 padding-input" for="midi-offset-ms">Offset (ms)</label>
                     <br />
-                    <input class="pure-u-1-2 round-left" type="number" min="1" max="65535" placeholder="1" value="1" />
-                    <input class="pure-u-1-2 round-right" type="number" step="any" placeholder="0" value="0" />
+                    <input class="pure-u-1-2 round-left" type="number" id="midi-track-number" name="midi-track-number" min="0" max="65535" placeholder="1" value="1" />
+                    <input class="pure-u-1-2 round-right" type="number" id="midi-offset-ms" name="midi-offset-ms" step="any" placeholder="0" value="0" />
                 </div>
             </div>
             <div class="pure-u-1 pure-u-md-1-3">
                 <div class="margin-0_5 pure-g">
                     <h2 class="pure-u-1">Scheduler</h2>
-                    <label class="pure-u-1 padding-input">Start Time</label>
-                    <input class="pure-u-3-4 round-left" placeholder="-- : -- : --" />
-                    <input class="pure-u-1-4 pure-button round-right" type="button" value="Set" />
+                    <label class="pure-u-1 padding-input" for="sched-start-time">Start Time</label>
+                    <input class="pure-u-3-4 round-left" id="sched-start-time" name="sched-start-time" placeholder="-- : -- : --" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="sched-set" value="Set" />
                     <br />
                     <label class="pure-u-1 padding-input">
-                        <input type="checkbox" /> Loop every
+                        <input type="checkbox" id="sched-loop-enabled" /> Loop every
                     </label>
-                    <input class="pure-u-1" placeholder="-- : -- : --" />
+                    <input class="pure-u-1" id="sched-loop-interval" placeholder="-- : -- : --" />
                 </div>
             </div>
         </div>
