@@ -50,7 +50,7 @@ func getMidiOutDevName(uDeviceID uintptr) (string, error) {
 	return windows.UTF16ToString(lpMidiOutCaps.SzPname[:]), nil
 }
 
-func listMidiInDevices() []string {
+func (app *application) listMidiInDevices() []string {
 	midiInDeviceCount := winmm.MidiInGetNumDevs()
 	results := make([]string, midiInDeviceCount)
 	for i := uint32(0); i < midiInDeviceCount; i++ {
@@ -60,7 +60,7 @@ func listMidiInDevices() []string {
 	return results
 }
 
-func listMidiOutDevices() []string {
+func (app *application) listMidiOutDevices() []string {
 	midiOutDeviceCount := winmm.MidiOutGetNumDevs()
 	results := make([]string, midiOutDeviceCount)
 	for i := uint32(0); i < midiOutDeviceCount; i++ {
@@ -131,7 +131,11 @@ func (app *application) openMidiOutDevice(midiOutDevice int) error {
 	app.MidiOutDevice = midiOutDevice
 	app.hMidiOut = hMidiOut
 
-	return app.setMidiOutInstrument(app.MidiOutInstrument)
+	err = app.setMidiOutBank(app.MidiOutBank)
+	if err != nil {
+		return err
+	}
+	return app.setMidiOutPatch(app.MidiOutPatch)
 }
 
 func (app *application) closeMidiInDevice() {
@@ -156,20 +160,25 @@ func (app *application) closeMidiOutDevice() {
 	app.hMidiOut = 0
 }
 
-func (app *application) setMidiOutInstrument(midiInstrument uint32) error {
-	err := winmm.MidiOutShortMsg(app.hMidiOut, 0x0000b0|((midiInstrument<<8)&0x7f0000))
+func (app *application) setMidiOutBank(midiOutBank uint16) error {
+	err := winmm.MidiOutShortMsg(app.hMidiOut, 0x0000b0|((uint32(midiOutBank)<<23)&0x7f0000))
 	if err != nil {
 		return err
 	}
-	err = winmm.MidiOutShortMsg(app.hMidiOut, 0x0020b0|((midiInstrument<<1)&0x7f0000))
+	err = winmm.MidiOutShortMsg(app.hMidiOut, 0x0020b0|((uint32(midiOutBank)<<16)&0x7f0000))
 	if err != nil {
 		return err
 	}
-	err = winmm.MidiOutShortMsg(app.hMidiOut, 0x00c0|((midiInstrument<<8)&0x7f00))
+	app.MidiOutBank = midiOutBank
+	return nil
+}
+
+func (app *application) setMidiOutPatch(midiOutPatch uint8) error {
+	err := winmm.MidiOutShortMsg(app.hMidiOut, 0x00c0|((uint32(midiOutPatch)<<8)&0x7f00))
 	if err != nil {
 		return err
 	}
-	app.MidiOutInstrument = midiInstrument
+	app.MidiOutPatch = midiOutPatch
 	return nil
 }
 

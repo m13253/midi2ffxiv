@@ -43,6 +43,7 @@ header h1 {
 }
 
 main {
+    color: #4e4e4e;
     padding: 2em 0.25em;
 }
 
@@ -57,6 +58,7 @@ main .margin-0_5 {
 }
 
 main h2 {
+    color: #000000;
     font-size: 1em;
     font-weight: normal;
     margin: 0.5em 0em;
@@ -122,6 +124,57 @@ footer .container {
 footer a {
     color: inherit;
     text-decoration: underline;
+}
+
+#float-container {
+    display: flex;
+    flex-direction: column;
+    padding: 4em 0em 0em 0em;
+    pointer-events: none;
+    position: fixed;
+    width: 100%;
+}
+
+#float-container .float-message {
+    animation: float-message 3.4s ease;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    border: 1px solid #cccccc;
+    box-shadow: 0px 0px 4px #777777;
+    color: #4e4e4e;
+    margin: 2em auto 0em auto;
+    max-width: 100%;
+    min-width: 10em;
+    opacity: 0;
+    padding: 1em 3em;
+    pointer-events: auto;
+    text-align: center;
+    transition: margin 0.2s ease;
+}
+
+#float-container .float-message.error {
+    background-color: #fff5f5;
+    border: 1px solid #ff9999;
+}
+
+@keyframes float-message {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    3% {
+        transform: scale(1.2);
+    }
+    6% {
+        opacity: 1;
+        transform: none;
+    }
+    94% {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
 }
 
 @media only screen and (max-width :480px) {

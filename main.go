@@ -46,10 +46,11 @@ import (
 type application struct {
 	preset
 
-	MidiInDevice      int
-	MidiOutDevice     int
-	MidiOutInstrument uint32
-	MidiOutTranspose  int
+	MidiInDevice     int
+	MidiOutDevice    int
+	MidiOutBank      uint16
+	MidiOutPatch     uint8
+	MidiOutTranspose int
 
 	bQuitting   bool
 	hWnd        uintptr
@@ -242,7 +243,8 @@ func (app *application) parseArgs(args []string) error {
 	app.preset = defaultPreset
 	app.MidiInDevice = -1
 	app.MidiOutDevice = -1
-	app.MidiOutInstrument = 46
+	app.MidiOutBank = 0
+	app.MidiOutPatch = 46
 	app.MidiOutTranspose = 0
 	if len(args) >= 2 {
 		value, err := strconv.ParseInt(args[1], 0, 32)
@@ -261,38 +263,48 @@ func (app *application) parseArgs(args []string) error {
 	if len(args) == 4 {
 		switch strings.ToLower(args[3]) {
 		case "harp":
-			app.MidiOutInstrument = 46
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 46
 			app.MidiOutTranspose = 0
 		case "grandpiano", "piano":
-			app.MidiOutInstrument = 0
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 0
 			app.MidiOutTranspose = 12
 		case "steelguitar", "lute":
-			app.MidiOutInstrument = 25
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 25
 			app.MidiOutTranspose = -12
 		case "pizzicato", "fiddle":
-			app.MidiOutInstrument = 45
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 45
 			app.MidiOutTranspose = 0
 		case "flute":
-			app.MidiOutInstrument = 73
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 73
 			app.MidiOutTranspose = 0
 		case "oboe":
-			app.MidiOutInstrument = 68
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 68
 			app.MidiOutTranspose = 0
 		case "clarinet":
-			app.MidiOutInstrument = 71
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 71
 			app.MidiOutTranspose = 0
 		case "piccolo", "fife":
-			app.MidiOutInstrument = 72
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 72
 			app.MidiOutTranspose = 0
 		case "panpipes", "panflute":
-			app.MidiOutInstrument = 75
+			app.MidiOutBank = 0
+			app.MidiOutPatch = 75
 			app.MidiOutTranspose = 0
 		default:
 			value, err := strconv.ParseUint(args[3], 0, 32)
 			if err != nil {
 				return err
 			}
-			app.MidiOutInstrument = uint32(value - 1)
+			app.MidiOutBank = uint16(value >> 8)
+			app.MidiOutPatch = uint8(value - 1)
 			app.MidiOutTranspose = 0
 		}
 	}

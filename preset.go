@@ -43,9 +43,9 @@ type preset struct {
 	MinTriggerVelocity uint8
 	Keybinding         [128]keybindingPreset
 
-	HTTPListenAddr string
-	HTTPUsername   string
-	HTTPPassword   string
+	WebListenAddr string
+	WebUsername   string
+	WebPassword   string
 }
 
 var defaultPreset = preset{
@@ -95,5 +95,5 @@ var defaultPreset = preset{
 
 		0x54: {'I', false, false, true},
 	},
-	HTTPListenAddr: ":65300",
+	WebListenAddr: ":65300",
 }
