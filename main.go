@@ -94,8 +94,8 @@ func (app *application) run(args []string) int {
 	app.preset = defaultPreset
 
 	app.ctx, app.Quit = context.WithCancel(context.Background())
-	app.MidiGoro = cgc.New()
-	app.KeystrokeGoro = cgc.New()
+	app.MidiGoro = cgc.NewBuffered(1)
+	app.KeystrokeGoro = cgc.NewBuffered(1)
 
 	app.MidiInDevice = -1
 	app.MidiOutDevice = -1
@@ -126,6 +126,7 @@ func (app *application) run(args []string) int {
 
 	go app.consumeStdin()
 	go app.MidiGoro.RunLoop(app.ctx)
+	go app.processKeystrokes()
 	go app.processMidi()
 	go app.waitForQuit()
 
@@ -162,16 +163,15 @@ func (app *application) processMidi() {
 				now = time.Now()
 			}
 
-			_ = app.MidiGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
-				err := app.sendMidiOutMessage(nextNote)
-				if err != nil {
-					fmt.Println("Error: ", err)
-				}
-				return nil, nil
+			_, err := app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
+				return nil, app.sendMidiOutMessage(nextNote)
 			})
+			if err != nil {
+				fmt.Println("Error: ", err)
+			}
 
 			if nextNote.Msg[0] == 0x80 || nextNote.Msg[0] == 0x90 {
-				_ = app.KeystrokeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+				_, _ = app.KeystrokeGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
 					app.produceKeystroke(nextNote)
 					return nil, nil
 				})
@@ -207,6 +207,11 @@ func (app *application) consumeStdin() {
 	hStdin := kernel32.GetStdHandle(kernel32.STD_INPUT_HANDLE)
 	if hStdin == 0 || hStdin == kernel32.INVALID_HANDLE_VALUE {
 		return
+	}
+	_, dwMode, err := kernel32.GetConsoleMode(hStdin)
+	if err == nil {
+		dwMode &= ^kernel32.ENABLE_PROCESSED_INPUT
+		_, _ = kernel32.SetConsoleMode(hStdin, dwMode)
 	}
 	var lpBuffer [16]kernel32.INPUT_RECORD_KEY_EVENT
 	for {
@@ -246,7 +251,7 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 		})
 	case winmm.MM_MIM_LONGDATA:
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
+		midiMsg := append([]byte{}, (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]...)
 		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
 			app.onMidiInMessage(midiMsg)
 			return nil, nil
@@ -260,7 +265,7 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
 	case winmm.MM_MIM_LONGERROR:
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
+		midiMsg := append([]byte{}, (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]...)
 		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
 		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
 		if err != nil {

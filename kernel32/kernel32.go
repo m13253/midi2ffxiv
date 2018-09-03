@@ -45,6 +45,8 @@ const (
 	STD_OUTPUT_HANDLE uint32 = ^uint32(11 - 1)
 	STD_ERROR_HANDLE  uint32 = ^uint32(12 - 1)
 
+	ENABLE_PROCESSED_INPUT uint32 = 0x0001
+
 	KEY_EVENT          uint16 = 0x0001
 	LEFT_CTRL_PRESSED  uint32 = 0x0008
 	RIGHT_CTRL_PRESSED uint32 = 0x0004
@@ -66,18 +68,30 @@ type KEY_EVENT_RECORD struct {
 
 var (
 	kernel32          *windows.LazyDLL
+	getConsoleMode    *windows.LazyProc
 	getCurrentProcess *windows.LazyProc
 	getStdHandle      *windows.LazyProc
 	readConsoleInput  *windows.LazyProc
+	setConsoleMode    *windows.LazyProc
 	setPriorityClass  *windows.LazyProc
 )
 
 func init() {
 	kernel32 = windows.NewLazySystemDLL("Kernel32.dll")
+	getConsoleMode = kernel32.NewProc("GetConsoleMode")
 	getCurrentProcess = kernel32.NewProc("GetCurrentProcess")
 	getStdHandle = kernel32.NewProc("GetStdHandle")
 	readConsoleInput = kernel32.NewProc("ReadConsoleInputW")
+	setConsoleMode = kernel32.NewProc("SetConsoleMode")
 	setPriorityClass = kernel32.NewProc("SetPriorityClass")
+}
+
+func GetConsoleMode(hConsoleHandle uintptr) (bResult bool, lpMode uint32, err error) {
+	r1, _, err := getConsoleMode.Call(hConsoleHandle, uintptr(unsafe.Pointer(&lpMode)))
+	if int32(r1) == 0 {
+		return
+	}
+	return true, lpMode, nil
 }
 
 func GetStdHandle(nStdHandle uint32) (hStdHandle uintptr) {
@@ -96,6 +110,14 @@ func ReadConsoleInput(hConsoleInput uintptr, lpBuffer []INPUT_RECORD_KEY_EVENT, 
 		return
 	}
 	return true, lpNumberOfEventsRead, nil
+}
+
+func SetConsoleMode(hConsoleHandle uintptr, dwMode uint32) (bResult bool, err error) {
+	r1, _, err := setConsoleMode.Call(hConsoleHandle, uintptr(dwMode))
+	if int32(r1) == 0 {
+		return
+	}
+	return true, nil
 }
 
 func SetPriorityClass(hProcess uintptr, dwPriorityClass uint32) (err error) {

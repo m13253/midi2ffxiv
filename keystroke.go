@@ -27,6 +27,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"./user32"
 )
@@ -197,7 +198,7 @@ func (app *application) clearModifiers() {
 
 func (app *application) printPressedKeys() {
 	pressedKeysCount := 0
-	line := "\t ["
+	line := "["
 	if app.isCtrlDown {
 		line += " Ctrl"
 	}
@@ -214,7 +215,7 @@ func (app *application) printPressedKeys() {
 		}
 	}
 	line += " ]"
-	fmt.Println(line)
+	log.Println(line)
 	if pressedKeysCount != app.pressedKeysCount {
 		panic(fmt.Sprintf("pressedKeysCount (%d) != app.pressedKeysCount (%d)", pressedKeysCount, app.pressedKeysCount))
 	}

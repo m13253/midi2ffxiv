@@ -2,18 +2,23 @@
 
     function requestHTTP(method, url, body, onLoad, onError) {
         var xhr = new XMLHttpRequest();
-        xhr.onerror = onError.bind(xhr);
-        xhr.onabort = xhr.onerror;
+        xhr.onerror = function onerror(event) {
+            return onError.bind(xhr)(event, "Connection error")
+        }
+        xhr.onabort = function onabort(event) {
+            return onError.bind(xhr)(event, "Connection aborted");
+        }
         xhr.onload = function onload(event) {
+            if (xhr.status < 200 || xhr.status >= 300) {
+                return onError.bind(xhr)(event, xhr.response);
+            }
             try {
-                return onLoad.bind(xhr)(event);
+                return onLoad.bind(xhr)(event, JSON.parse(xhr.response));
             } catch (e) {
-                console.error(e);
-                xhr.onerror(event, e);
+                return onError.bind(xhr)(event, e);
             }
         }
         xhr.open(method, url, true);
-        xhr.responseType = "json";
         xhr.send(body);
     }
 
@@ -61,27 +66,25 @@
     }
     var suppressEvents = false;
     function doMidiInputRefresh(quiet) {
-        requestHTTP("GET", "/midi-input-device", null, function onLoad() {
+        requestHTTP("GET", "/midi-input-device", null, function onLoad(event, response) {
             var list = document.getElementById("midi-input-device");
             suppressEvents = true;
             try {
                 clearSelect(list);
                 addSelectOption(list, "(None)", "-1");
-                var devices = this.response["devices"];
+                var devices = response["devices"];
                 for (var i = 0; i < devices.length; i++) {
-                    addSelectOption(list, devices[i], i.toString());
+                    addSelectOption(list, devices[i], i);
                 }
-                list.value = this.response["selected"];
+                list.value = response["selected"];
             } finally {
                 suppressEvents = false;
             }
             if (!quiet) {
                 reportMessage("MIDI input device updated.");
             }
-        }, function onError() {
-            if (!quiet) {
-                reportError("Failed to retrieve MIDI input devices.");
-            }
+        }, function onError(event, error) {
+            reportError("Failed to retrieve MIDI input devices.");
         });
     }
 
@@ -91,35 +94,35 @@
 
     function onMidiInputDeviceChanged() {
         if (suppressEvents) { return; }
-        var deviceID = document.getElementById("midi-input-device").value;
-        requestHTTP("PUT", "/midi-input-device", deviceID, function onLoad() {
-            if (deviceID >= 0) {
-                reportMessage("MIDI input device changed to #" + deviceID + ".");
-            } else {
-                reportMessage("MIDI input device changed to (None).");
-            }
-        }, function onError() {
-            reportError("Failed to change MIDI input device.");
+        var value = this.value;
+        var text = this.options[this.selectedIndex].text;
+        requestHTTP("PUT", "/midi-input-device", value, function onLoad() {
+            reportMessage("MIDI input device changed to " + text + ".");
+        }, function onError(event, error) {
+            reportError(error);
         })
     }
 
     function doMidiOutputRefresh(quiet) {
-        requestHTTP("GET", "/midi-output-device", null, function onLoad() {
+        requestHTTP("GET", "/midi-output-device", null, function onLoad(event, response) {
             var list = document.getElementById("midi-output-device");
-            clearSelect(list);
-            addSelectOption(list, "(None)", "-1");
-            var devices = this.response["devices"];
-            for (var i = 0; i < devices.length; i++) {
-                addSelectOption(list, devices[i], i.toString());
+            suppressEvents = true;
+            try {
+                clearSelect(list);
+                addSelectOption(list, "(None)", "-1");
+                var devices = response["devices"];
+                for (var i = 0; i < devices.length; i++) {
+                    addSelectOption(list, devices[i], i);
+                }
+                list.value = response["selected"];
+            } finally {
+                suppressEvents = false;
             }
-            list.value = this.response["selected"];
             if (!quiet) {
                 reportMessage("MIDI output device updated.");
             }
-        }, function onError() {
-            if (!quiet) {
-                reportError("Failed to retrieve MIDI output devices.");
-            }
+        }, function onError(event, error) {
+            reportError("Failed to retrieve MIDI output devices.");
         });
     }
 
@@ -129,75 +132,147 @@
 
     function onMidiOutputDeviceChanged() {
         if (suppressEvents) { return; }
-        var deviceID = document.getElementById("midi-output-device").value;
-        requestHTTP("PUT", "/midi-output-device", deviceID, function onLoad() {
-            if (deviceID >= 0) {
-                reportMessage("MIDI output device changed to #" + deviceID + ".");
-            } else {
-                reportMessage("MIDI output device changed to (None).");
-            }
-        }, function onError() {
-            reportError("Failed to change MIDI output device.");
+        var value = this.value;
+        var text = this.options[this.selectedIndex].text;
+        requestHTTP("PUT", "/midi-output-device", value, function onLoad() {
+            reportMessage("MIDI output device changed to " + text + ".");
+        }, function onError(event, error) {
+            reportError(error);
         })
     }
 
-    function onSynthBankChanged() { }
+    var instrumentTable = {
+        "0:47": [0, 47, 0],
+        "0:1": [0, 1, 12],
+        "0:26": [0, 26, -12],
+        "0:46": [0, 46, 0],
+        "0:74": [0, 740, 0],
+        "0:69": [0, 69, 0],
+        "0:72": [0, 72, 0],
+        "0:73": [0, 73, 0],
+        "0:76": [0, 76, 0],
+    }
 
-    function onSynthPatchChanged() { }
-
-    function onSynthTransposeChanged() { }
-
-    function onSynthInstrumentChanged() {
+    function doSynthInstrumentUpdate() {
         var synthBank = document.getElementById("synth-bank");
         var synthPatch = document.getElementById("synth-patch");
         var synthTranspose = document.getElementById("synth-transpose");
-        switch (this.value) {
-            case "47":
-                synthBank.value = 0;
-                synthPatch.value = 47;
-                synthTranspose.value = 0;
-                break;
-            case "1":
-                synthBank.value = 0;
-                synthPatch.value = 1;
-                synthTranspose.value = 12;
-                break;
-            case "26":
-                synthBank.value = 0;
-                synthPatch.value = 26;
-                synthTranspose.value = -12;
-                break;
-            case "46":
-                synthBank.value = 0;
-                synthPatch.value = 46;
-                synthTranspose.value = 0;
-                break;
-            case "74":
-                synthBank.value = 0;
-                synthPatch.value = 74;
-                synthTranspose.value = 0;
-                break;
-            case "69":
-                synthBank.value = 0;
-                synthPatch.value = 69;
-                synthTranspose.value = 0;
-                break;
-            case "72":
-                synthBank.value = 0;
-                synthPatch.value = 72;
-                synthTranspose.value = 0;
-                break;
-            case "73":
-                synthBank.value = 0;
-                synthPatch.value = 73;
-                synthTranspose.value = 0;
-                break;
-            case "76":
-                synthBank.value = 0;
-                synthPatch.value = 76;
-                synthTranspose.value = 0;
-                break;
+        var synthInstrument = document.getElementById("synth-instrument");
+        var instrument = "";
+        for (var i in instrumentTable) {
+            if (instrumentTable[i][0] === +synthBank.value && instrumentTable[i][1] === +synthPatch.value && instrumentTable[i][2] === +synthTranspose.value) {
+                instrument = i;
+            }
         }
+        suppressEvents = true;
+        synthInstrument.value = instrument;
+        suppressEvents = false;
+    }
+
+    function onSynthBankChanged() {
+        if (suppressEvents) { return; }
+        var value = this.value;
+        doSynthInstrumentUpdate();
+        requestHTTP("PUT", "/midi-output-bank", value, function onLoad() {
+            reportMessage("MIDI bank changed to " + value + ".");
+        }, function onError(event, error) {
+            reportError(error);
+        })
+    }
+
+    function onSynthPatchChanged() {
+        if (suppressEvents) { return; }
+        var value = this.value;
+        doSynthInstrumentUpdate();
+        requestHTTP("PUT", "/midi-output-patch", value - 1, function onLoad() {
+            reportMessage("MIDI patch changed to " + value + ".");
+        }, function onError(event, error) {
+            reportError(error);
+        })
+    }
+
+    function onSynthTransposeChanged() {
+        if (suppressEvents) { return; }
+        var value = this.value;
+        doSynthInstrumentUpdate();
+        requestHTTP("PUT", "/midi-output-transpose", value, function onLoad() {
+            reportMessage("MIDI patch changed to " + value + ".");
+        }, function onError(event, error) {
+            reportError(error);
+        })
+    }
+
+    function doSynthInstrumentRefresh() {
+        var synthBank = document.getElementById("synth-bank");
+        var synthPatch = document.getElementById("synth-patch");
+        var synthTranspose = document.getElementById("synth-transpose");
+        var numLoaded = 0;
+        var numFailed = 0;
+        countLoad = function countLoad(event, response) {
+            numLoaded++;
+            if (numLoaded == 3) {
+                doSynthInstrumentUpdate
+            }
+        }
+        countError = function countError(event, error) {
+            numFailed++;
+            if (numFailed == 1) {
+                reportError(error);
+            }
+        }
+        requestHTTP("GET", "/midi-output-bank", null, function onLoad(event, response) {
+            var value = response["bank"];
+            suppressEvents = true;
+            synthBank.value = value;
+            suppressEvents = false;
+        }, countError);
+        requestHTTP("GET", "/midi-output-patch", null, function onLoad(event, response) {
+            var value = response["patch"];
+            suppressEvents = true;
+            synthPatch.value = +value + 1;
+            suppressEvents = false;
+        }, countError);
+        requestHTTP("GET", "/midi-output-transpose", null, function onLoad(event, response) {
+            var value = response["transpose"];
+            suppressEvents = true;
+            synthTranspose.value = value;
+            suppressEvents = false;
+        }, countError);
+    }
+
+    function onSynthInstrumentChanged() {
+        if (suppressEvents) { return; }
+        var synthBank = document.getElementById("synth-bank");
+        var synthPatch = document.getElementById("synth-patch");
+        var synthTranspose = document.getElementById("synth-transpose");
+        var value = this.value;
+        var text = this.options[this.selectedIndex].text;
+        var instrument = instrumentTable[value];
+        if (instrument) {
+            suppressEvents = true;
+            synthBank.value = instrument[0];
+            synthPatch.value = instrument[1];
+            synthTranspose.value = instrument[2];
+            suppressEvents = false;
+        }
+
+        numLoaded = 0;
+        numFailed = 0;
+        countLoad = function countLoad(event, response) {
+            numLoaded++;
+            if (numLoaded == 3) {
+                reportMessage("MIDI instrument changed to " + text + ".");
+            }
+        }
+        countError = function countError(event, error) {
+            numFailed++;
+            if (numFailed == 1) {
+                reportError(error);
+            }
+        }
+        requestHTTP("PUT", "/midi-output-bank", synthBank.value, countLoad, countError);
+        requestHTTP("PUT", "/midi-output-patch", synthPatch.value - 1, countLoad, countError);
+        requestHTTP("PUT", "/midi-output-transpose", synthTranspose.value, countLoad, countError);
     }
 
     function onNTPSyncClicked() { }
@@ -229,5 +304,6 @@
 
     doMidiInputRefresh(true);
     doMidiOutputRefresh(true);
+    doSynthInstrumentRefresh();
 
 })();
