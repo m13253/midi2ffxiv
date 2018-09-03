@@ -26,20 +26,179 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
+	"os"
+	"runtime"
+	"strconv"
+	"syscall"
 )
 
 type webHandlers struct {
 	app      *application
+	server   *http.Server
 	serveMux *http.ServeMux
 }
 
 func (app *application) startWebServer() error {
 	h := &webHandlers{
 		app:      app,
+		server:   new(http.Server),
 		serveMux: http.NewServeMux(),
 	}
+	h.server.Handler = h.serveMux
 	h.serveMux.Handle("/", http.FileServer(http.Dir("web")))
-	err := http.ListenAndServe(app.WebListenAddr, h.serveMux)
-	return err
+	h.serveMux.HandleFunc("/midi-input-device", h.midiInputDevice)
+	h.serveMux.HandleFunc("/midi-output-device", h.midiOutputDevice)
+
+	originalAddr, err := net.ResolveTCPAddr("tcp", app.WebListenAddr)
+	availableAddr := new(net.TCPAddr)
+	*availableAddr = *originalAddr
+	if err != nil {
+		return err
+	}
+
+	var l net.Listener
+	for availableAddr.Port = originalAddr.Port; availableAddr.Port < 65535 && availableAddr.Port-originalAddr.Port < 10; availableAddr.Port++ {
+		l, err = net.ListenTCP("tcp", availableAddr)
+		if err != nil {
+			if isErrorAddressAlreadyInUse(err) {
+				continue
+			} else {
+				return err
+			}
+		}
+		break
+	}
+
+	h.server.Addr = availableAddr.String()
+	if len(availableAddr.IP) == 0 || availableAddr.IP.IsUnspecified() {
+		fmt.Printf("Open control panel at http://localhost:%d\n", availableAddr.Port)
+	} else {
+		fmt.Printf("Open control panel at http://%s\n", h.server.Addr)
+	}
+
+	go h.waitForQuit()
+	go func() {
+		h.server.Serve(l)
+		l.Close()
+	}()
+
+	return nil
+}
+
+func isErrorAddressAlreadyInUse(err error) bool {
+	errOpError, ok := err.(*net.OpError)
+	if !ok {
+		return false
+	}
+	errSyscallError, ok := errOpError.Err.(*os.SyscallError)
+	if !ok {
+		return false
+	}
+	errErrno, ok := errSyscallError.Err.(syscall.Errno)
+	if !ok {
+		return false
+	}
+	if errErrno == syscall.EADDRINUSE {
+		return true
+	}
+	const WSAEADDRINUSE = 10048
+	if runtime.GOOS == "windows" && errErrno == WSAEADDRINUSE {
+		return true
+	}
+	return false
+}
+
+func (h *webHandlers) waitForQuit() {
+	<-h.app.ctx.Done()
+	h.server.Close()
+}
+
+func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", 500)
+			return
+		}
+		deviceID, err := strconv.ParseInt(string(body), 0, 32)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			return nil, h.app.openMidiInDevice(int(deviceID))
+		})
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", 500)
+			return
+		}
+	}
+
+	var result struct {
+		Devices  []string `json:"devices"`
+		Selected int      `json:"selected"`
+	}
+	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		result.Devices = h.app.listMidiInDevices()
+		result.Selected = h.app.MidiInDevice
+		return nil, nil
+	})
+	writeJSON(w, result)
+}
+
+func (h *webHandlers) midiOutputDevice(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", 500)
+			return
+		}
+		deviceID, err := strconv.ParseInt(string(body), 0, 32)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Bad Request", 400)
+			return
+		}
+		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			return nil, h.app.openMidiOutDevice(int(deviceID))
+		})
+		if err != nil {
+			log.Println(err)
+			http.Error(w, "Internal Server Error", 500)
+			return
+		}
+	}
+
+	var result struct {
+		Devices  []string `json:"devices"`
+		Selected int      `json:"selected"`
+	}
+	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		result.Devices = h.app.listMidiOutDevices()
+		result.Selected = h.app.MidiOutDevice
+		return nil, nil
+	})
+	writeJSON(w, result)
+}
+
+func writeJSON(w http.ResponseWriter, v interface{}) {
+	stream, err := json.Marshal(v)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, "Internal Server Error", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Write(stream)
 }

@@ -26,17 +26,16 @@
 package main
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
+	"unsafe"
+
+	cgc "github.com/m13253/cgc-go"
 
 	"./kernel32"
 	"./user32"
@@ -46,18 +45,22 @@ import (
 type application struct {
 	preset
 
+	Quit          context.CancelFunc
+	MidiGoro      cgc.Executor
+	KeystrokeGoro cgc.Executor
+
 	MidiInDevice     int
 	MidiOutDevice    int
 	MidiOutBank      uint16
 	MidiOutPatch     uint8
 	MidiOutTranspose int
 
-	bQuitting   bool
 	hWnd        uintptr
 	hMidiIn     uintptr
 	hMidiOut    uintptr
 	sysexBuffer [2]*winmm.MIDIHDR
 
+	ctx                 context.Context
 	pendingNotes        chan *midiMessage
 	lastNoteOn          *midiMessage
 	pressedKeys         [256]bool
@@ -80,39 +83,53 @@ func main() {
 }
 
 func (app *application) run(args []string) int {
+	runtime.LockOSThread()
+	_ = kernel32.SetPriorityClass(kernel32.GetCurrentProcess(), kernel32.HIGH_PRIORITY_CLASS)
+
 	fmt.Println("MIDI2FFXIV")
 	fmt.Println("Copyright (c) 2018 Star Brilliant")
 	fmt.Println("=================================")
 	fmt.Println()
-	err := app.parseArgs(args)
-	if err != nil {
-		log.Println("Error: ", err)
-		return 1
-	}
 
-	runtime.LockOSThread()
-	_ = kernel32.SetPriorityClass(kernel32.GetCurrentProcess(), kernel32.HIGH_PRIORITY_CLASS)
+	app.preset = defaultPreset
 
-	hWndClass, err := user32.RegisterClassEx(0, app.onMidiInMessage, 0, 0, 0, 0, 0, 0, 0, "midi2ffxiv", 0)
-	if err != nil {
-		fmt.Println("Error: ", err)
-		return int(err.(syscall.Errno))
-	}
-	app.hWnd, err = user32.CreateWindowEx(0, uintptr(hWndClass), "midi2ffxiv", 0, 0, 0, 0, 0, user32.HWND_MESSAGE, 0, 0, nil)
-	if err != nil {
-		fmt.Println("Error: ", err)
-		return int(err.(syscall.Errno))
-	}
+	app.ctx, app.Quit = context.WithCancel(context.Background())
+	app.MidiGoro = cgc.New()
+	app.KeystrokeGoro = cgc.New()
+
+	app.MidiInDevice = -1
+	app.MidiOutDevice = -1
+	app.MidiOutBank = 0
+	app.MidiOutPatch = 46
+	app.MidiOutTranspose = 0
 
 	app.pendingNotes = make(chan *midiMessage, 256)
 	app.clearModifiersTimer = time.NewTimer(app.IdleDuration)
 	app.keysMutex = new(sync.Mutex)
 
-	go app.consumeStdin()
-	go app.consumeMidiMessage()
-	go app.clearModifiers()
+	err := app.startWebServer()
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return app.delayReturn(1)
+	}
 
-	for !app.bQuitting {
+	hWndClass, err := user32.RegisterClassEx(0, app.windowProc, 0, 0, 0, 0, 0, 0, 0, "midi2ffxiv", 0)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return app.delayReturn(int(err.(syscall.Errno)))
+	}
+	app.hWnd, err = user32.CreateWindowEx(0, uintptr(hWndClass), "midi2ffxiv", 0, 0, 0, 0, 0, user32.HWND_MESSAGE, 0, 0, nil)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return app.delayReturn(int(err.(syscall.Errno)))
+	}
+
+	go app.consumeStdin()
+	go app.MidiGoro.RunLoop(app.ctx)
+	go app.processMidi()
+	go app.waitForQuit()
+
+	for {
 		bResult, lpMsg, err := user32.GetMessage(app.hWnd, 0, 0)
 		if err != nil {
 			fmt.Println("Error: ", err)
@@ -125,109 +142,82 @@ func (app *application) run(args []string) int {
 		_ = user32.DispatchMessage(lpMsg)
 	}
 
+	app.Quit()
+
 	return 0
 }
 
-func (app *application) addNote(note []byte) {
-	app.pendingNotes <- &midiMessage{
-		Time: time.Now(),
-		Msg:  note,
-	}
-}
-
-func (app *application) clearModifiers() {
+func (app *application) processMidi() {
 	for {
-		<-app.clearModifiersTimer.C
-		app.keysMutex.Lock()
-		pInputs := []user32.INPUT_KEYBDINPUT{}
-		if app.isCtrlDown {
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(user32.VK_CONTROL), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.isCtrlDown = false
-		}
-		if app.isAltDown {
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(user32.VK_MENU), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.isAltDown = false
-		}
-		if app.isShiftDown {
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(user32.VK_SHIFT), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.isShiftDown = false
-		}
-		if len(pInputs) != 0 {
-			for i := range pInputs {
-				_, err := user32.SendInput(pInputs[i : i+1])
+		select {
+		case nextNote := <-app.pendingNotes:
+			now := time.Now()
+
+			if (nextNote.Msg[0] == 0x90 || nextNote.Msg[0] == 0xa0) && now.Sub(nextNote.Time) > app.MaxNoteDelay {
+				continue
+			}
+
+			if app.lastNoteOn != nil && ((nextNote.Msg[0] == 0x80 && nextNote.Msg[1] == app.lastNoteOn.Msg[1]) || nextNote.Msg[0] == 0x90) && now.Sub(app.lastNoteOn.Time) < app.SkillCooldown {
+				time.Sleep(app.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
+				now = time.Now()
+			}
+
+			_ = app.MidiGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+				err := app.sendMidiOutMessage(nextNote)
 				if err != nil {
 					fmt.Println("Error: ", err)
 				}
+				return nil, nil
+			})
+
+			if nextNote.Msg[0] == 0x80 || nextNote.Msg[0] == 0x90 {
+				_ = app.KeystrokeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+					app.produceKeystroke(nextNote)
+					return nil, nil
+				})
 			}
-			app.printPressedKeys()
+
+			if nextNote.Msg[0] == 0x90 {
+				nextNote.Time = now
+				app.lastNoteOn = nextNote
+			}
+		case <-app.ctx.Done():
+			break
 		}
-		app.keysMutex.Unlock()
 	}
 }
 
-func (app *application) consumeMidiMessage() {
+func (app *application) processKeystrokes() {
 	for {
-		nextNote := <-app.pendingNotes
-		now := time.Now()
-
-		if (nextNote.Msg[0] == 0x90 || nextNote.Msg[0] == 0xa0) && now.Sub(nextNote.Time) > app.MaxNoteDelay {
-			continue
-		}
-
-		if app.lastNoteOn != nil && ((nextNote.Msg[0] == 0x80 && nextNote.Msg[1] == app.lastNoteOn.Msg[1]) || nextNote.Msg[0] == 0x90) && now.Sub(app.lastNoteOn.Time) < app.SkillCooldown {
-			time.Sleep(app.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
-			now = time.Now()
-		}
-
-		err := app.sendMidiOutMessage(nextNote)
-		if err != nil {
-			fmt.Println("Error: ", err)
-		}
-
-		if nextNote.Msg[0] == 0x80 || nextNote.Msg[0] == 0x90 {
-			app.produceKeystroke(nextNote)
-		}
-
-		if nextNote.Msg[0] == 0x90 {
-			nextNote.Time = now
-			app.lastNoteOn = nextNote
+		select {
+		case r, ok := <-app.KeystrokeGoro:
+			if !ok {
+				return
+			}
+			_ = cgc.RunOneRequest(app.ctx, r)
+		case <-app.clearModifiersTimer.C:
+			app.clearModifiers()
+		case <-app.ctx.Done():
+			return
 		}
 	}
 }
 
 func (app *application) consumeStdin() {
-	var readBuffer [512]byte
+	hStdin := kernel32.GetStdHandle(kernel32.STD_INPUT_HANDLE)
+	if hStdin == 0 || hStdin == kernel32.INVALID_HANDLE_VALUE {
+		return
+	}
+	var lpBuffer [16]kernel32.INPUT_RECORD_KEY_EVENT
 	for {
-		n, err := os.Stdin.Read(readBuffer[:])
-		if n == 0 || err != nil {
+		bResult, lpNumberOfEventsRead, _ := kernel32.ReadConsoleInput(hStdin, lpBuffer[:], uint32(len(lpBuffer)))
+		if !bResult || lpNumberOfEventsRead == 0 {
 			break
+		}
+		for _, event := range lpBuffer[:lpNumberOfEventsRead] {
+			if event.EventType == kernel32.KEY_EVENT && event.KeyEvent.WVirtualKeyCode == 'C' && (event.KeyEvent.DwControlKeyState&(kernel32.LEFT_CTRL_PRESSED|kernel32.RIGHT_CTRL_PRESSED)) != 0 {
+				app.Quit()
+			}
 		}
 	}
 }
@@ -239,292 +229,45 @@ func (app *application) delayReturn(code int) int {
 	return code
 }
 
-func (app *application) parseArgs(args []string) error {
-	app.preset = defaultPreset
-	app.MidiInDevice = -1
-	app.MidiOutDevice = -1
-	app.MidiOutBank = 0
-	app.MidiOutPatch = 46
-	app.MidiOutTranspose = 0
-	if len(args) >= 2 {
-		value, err := strconv.ParseInt(args[1], 0, 32)
-		if err != nil {
-			return err
-		}
-		app.MidiInDevice = int(value)
-	}
-	if len(args) >= 3 {
-		value, err := strconv.ParseInt(args[2], 0, 32)
-		if err != nil {
-			return err
-		}
-		app.MidiOutDevice = int(value)
-	}
-	if len(args) == 4 {
-		switch strings.ToLower(args[3]) {
-		case "harp":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 46
-			app.MidiOutTranspose = 0
-		case "grandpiano", "piano":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 0
-			app.MidiOutTranspose = 12
-		case "steelguitar", "lute":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 25
-			app.MidiOutTranspose = -12
-		case "pizzicato", "fiddle":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 45
-			app.MidiOutTranspose = 0
-		case "flute":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 73
-			app.MidiOutTranspose = 0
-		case "oboe":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 68
-			app.MidiOutTranspose = 0
-		case "clarinet":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 71
-			app.MidiOutTranspose = 0
-		case "piccolo", "fife":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 72
-			app.MidiOutTranspose = 0
-		case "panpipes", "panflute":
-			app.MidiOutBank = 0
-			app.MidiOutPatch = 75
-			app.MidiOutTranspose = 0
-		default:
-			value, err := strconv.ParseUint(args[3], 0, 32)
-			if err != nil {
-				return err
-			}
-			app.MidiOutBank = uint16(value >> 8)
-			app.MidiOutPatch = uint8(value - 1)
-			app.MidiOutTranspose = 0
-		}
-	}
-	if len(args) >= 5 {
-		return errors.New("wrong number of arguments")
-	}
-	return nil
+func (app *application) waitForQuit() {
+	<-app.ctx.Done()
+	_, _ = user32.PostMessage(app.hWnd, user32.WM_QUIT, 0, 0)
 }
 
-func (app *application) printPressedKeys() {
-	pressedKeysCount := 0
-	line := "\t ["
-	if app.isCtrlDown {
-		line += " Ctrl"
-	}
-	if app.isAltDown {
-		line += " Alt"
-	}
-	if app.isShiftDown {
-		line += " Shift"
-	}
-	for i, v := range app.pressedKeys {
-		if v {
-			line += fmt.Sprintf(" %q", rune(i))
-			pressedKeysCount++
-		}
-	}
-	line += " ]"
-	fmt.Println(line)
-	if pressedKeysCount != app.pressedKeysCount {
-		panic(fmt.Sprintf("pressedKeysCount (%d) != app.pressedKeysCount (%d)", pressedKeysCount, app.pressedKeysCount))
-	}
-}
-
-func (app *application) printUsage() {
-	fmt.Printf("Usage: %s MidiInDevice [MidiOutDevice Instrument]\n", filepath.Base(os.Args[0]))
-	fmt.Println()
-	fmt.Println("List of MIDI IN devices:")
-	midiInDeviceCount := winmm.MidiInGetNumDevs()
-	for i := uint32(0); i < midiInDeviceCount; i++ {
-		deviceName, _ := getMidiInDevName(uintptr(i))
-		fmt.Printf("  %d: %s\n", i, deviceName)
-	}
-	fmt.Println()
-	fmt.Println("List of MIDI OUT devices:")
-	midiOutDeviceCount := winmm.MidiOutGetNumDevs()
-	for i := uint32(0); i < midiOutDeviceCount; i++ {
-		deviceName, _ := getMidiOutDevName(uintptr(i))
-		fmt.Printf("  %d: %s\n", i, deviceName)
-	}
-	fmt.Println()
-	fmt.Println("List of instrument sounds:")
-	fmt.Println("  Harp:        General MIDI 0:47")
-	fmt.Println("  GrandPiano:  General MIDI 0:1")
-	fmt.Println("  SteelGuitar: General MIDI 0:26")
-	fmt.Println("  Pizzicato:   General MIDI 0:46")
-	fmt.Println("  Flute:       General MIDI 0:74")
-	fmt.Println("  Oboe:        General MIDI 0:69")
-	fmt.Println("  Clarinet:    General MIDI 0:72")
-	fmt.Println("  Piccolo:     General MIDI 0:73")
-	fmt.Println("  Panpipes:    General MIDI 0:76")
-	fmt.Println()
-}
-
-func (app *application) processMidiMessage(midiMsg []byte) {
-	channel := midiMsg[0] & 0xf
-	// Ignore percussion channel
-	if channel == 9 {
-		return
-	}
-	midiMsg[0] = midiMsg[0] & 0xf0
-	switch midiMsg[0] {
-	// Note off
-	case 0x80:
-		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
-			break
-		}
-		app.addNote(midiMsg)
-	// Note on
-	case 0x90:
-		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
-			break
-		}
-		if midiMsg[2] < app.MinTriggerVelocity {
-			midiMsg[0] = 0x80
-		}
-		app.addNote(midiMsg)
-	// After touch
-	case 0xa0:
-		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
-			break
-		}
-		if midiMsg[2] == 0 {
-			midiMsg[0] = 0x80
-		}
-		app.addNote(midiMsg)
-	// Control change
-	case 0xb0:
-		// Block bank select
-		if midiMsg[1] == 0x00 || midiMsg[1] == 0x20 {
-			break
-		}
-		app.addNote(midiMsg)
-	// Channel pressure
-	case 0xd0:
-		app.addNote(midiMsg)
-	}
-}
-
-func (app *application) produceKeystroke(note *midiMessage) {
-	app.keysMutex.Lock()
-	defer app.keysMutex.Unlock()
-
-	pInputs := []user32.INPUT_KEYBDINPUT{}
-	if note.Msg[0] == 0x90 {
-		keybind := app.Keybinding[int(note.Msg[1])]
-		if app.pressedKeys[keybind.VirtualKeyCode] {
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(keybind.VirtualKeyCode), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.pressedKeysCount--
-		}
-		if app.isCtrlDown != keybind.Ctrl {
-			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
-			if keybind.Ctrl {
-				dwFlags = user32.KEYEVENTF_SCANCODE
-			}
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(user32.VK_CONTROL), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     dwFlags,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.isCtrlDown = keybind.Ctrl
-		}
-		if app.isAltDown != keybind.Alt {
-			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
-			if keybind.Alt {
-				dwFlags = user32.KEYEVENTF_SCANCODE
-			}
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(user32.VK_MENU), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     dwFlags,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.isAltDown = keybind.Alt
-		}
-		if app.isShiftDown != keybind.Shift {
-			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
-			if keybind.Shift {
-				dwFlags = user32.KEYEVENTF_SCANCODE
-			}
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(user32.VK_SHIFT), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     dwFlags,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.isShiftDown = keybind.Shift
-		}
-		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-			Type: user32.INPUT_KEYBOARD,
-			Ki: user32.KEYBDINPUT{
-				WVk:         0,
-				WScan:       uint16(user32.MapVirtualKey(uint32(keybind.VirtualKeyCode), user32.MAPVK_VK_TO_VSC)),
-				DwFlags:     user32.KEYEVENTF_SCANCODE,
-				Time:        0,
-				DwExtraInfo: 0,
-			},
+func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uintptr) uintptr {
+	switch uMsg {
+	case winmm.MM_MIM_OPEN:
+	case winmm.MM_MIM_CLOSE:
+	case winmm.MM_MIM_DATA, winmm.MM_MIM_MOREDATA:
+		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
+		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
+			app.onMidiInMessage(midiMsg)
+			return nil, nil
 		})
-		app.pressedKeys[keybind.VirtualKeyCode] = true
-		app.pressedKeysCount++
-		app.clearModifiersTimer.Stop()
-	} else if note.Msg[0] == 0x80 {
-		keybind := app.Keybinding[int(note.Msg[1])]
-		if app.pressedKeys[keybind.VirtualKeyCode] {
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(keybind.VirtualKeyCode), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.pressedKeys[keybind.VirtualKeyCode] = false
-			app.pressedKeysCount--
+	case winmm.MM_MIM_LONGDATA:
+		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
+		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
+		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
+			app.onMidiInMessage(midiMsg)
+			return nil, nil
+		})
+		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
+		if err != nil {
+			fmt.Println("Error: ", err)
 		}
-		if app.pressedKeysCount == 0 {
-			app.clearModifiersTimer.Reset(app.IdleDuration)
+	case winmm.MM_MIM_ERROR:
+		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
+		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
+	case winmm.MM_MIM_LONGERROR:
+		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
+		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
+		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
+		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
+		if err != nil {
+			fmt.Println("Error: ", err)
 		}
+	default:
+		return user32.DefWindowProc(hWnd, uMsg, wParam, lParam)
 	}
-	if len(pInputs) != 0 {
-		for i := range pInputs {
-			_, err := user32.SendInput(pInputs[i : i+1])
-			if err != nil {
-				fmt.Println("Error: ", err)
-			}
-		}
-		app.printPressedKeys()
-	}
+	return 0
 }

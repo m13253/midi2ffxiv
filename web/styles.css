@@ -141,13 +141,12 @@ footer a {
     border-radius: 4px;
     border: 1px solid #cccccc;
     box-shadow: 0px 0px 4px #777777;
-    color: #4e4e4e;
+    color: #000000;
     margin: 2em auto 0em auto;
     max-width: 100%;
     min-width: 10em;
     opacity: 0;
     padding: 1em 3em;
-    pointer-events: auto;
     text-align: center;
     transition: margin 0.2s ease;
 }
@@ -166,11 +165,11 @@ footer a {
         transform: scale(1.2);
     }
     6% {
-        opacity: 1;
+        opacity: 0.8;
         transform: none;
     }
     94% {
-        opacity: 1;
+        opacity: 0.8;
     }
     to {
         opacity: 0;

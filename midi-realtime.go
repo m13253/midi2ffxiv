@@ -27,28 +27,11 @@ package main
 
 import (
 	"fmt"
-	"unsafe"
+	"time"
 
-	"./user32"
 	"./winmm"
 	"golang.org/x/sys/windows"
 )
-
-func getMidiInDevName(uDeviceID uintptr) (string, error) {
-	lpMidiInCaps, err := winmm.MidiInGetDevCaps(uDeviceID)
-	if err != nil {
-		return fmt.Sprintf("(Error: %s)", err.Error()), err
-	}
-	return windows.UTF16ToString(lpMidiInCaps.SzPname[:]), nil
-}
-
-func getMidiOutDevName(uDeviceID uintptr) (string, error) {
-	lpMidiOutCaps, err := winmm.MidiOutGetDevCaps(uDeviceID)
-	if err != nil {
-		return fmt.Sprintf("(Error: %s)", err.Error()), err
-	}
-	return windows.UTF16ToString(lpMidiOutCaps.SzPname[:]), nil
-}
 
 func (app *application) listMidiInDevices() []string {
 	midiInDeviceCount := winmm.MidiInGetNumDevs()
@@ -186,38 +169,52 @@ func (app *application) setMidiOutTranspose(midiOutTranspose int) {
 	app.MidiOutTranspose = midiOutTranspose
 }
 
-func (app *application) onMidiInMessage(hWnd uintptr, uMsg uint32, wParam, lParam uintptr) uintptr {
-	switch uMsg {
-	case winmm.MM_MIM_OPEN:
-	case winmm.MM_MIM_CLOSE:
-		fmt.Println("MIDI IN port disconnected, exiting.")
-		app.bQuitting = true
-	case winmm.MM_MIM_DATA, winmm.MM_MIM_MOREDATA:
-		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		app.processMidiMessage(midiMsg)
-	case winmm.MM_MIM_LONGDATA:
-		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
-		app.processMidiMessage(midiMsg)
-		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
-		if err != nil {
-			fmt.Println("Error: ", err)
-		}
-	case winmm.MM_MIM_ERROR:
-		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
-	case winmm.MM_MIM_LONGERROR:
-		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]
-		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
-		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
-		if err != nil {
-			fmt.Println("Error: ", err)
-		}
-	default:
-		return user32.DefWindowProc(hWnd, uMsg, wParam, lParam)
+func (app *application) onMidiInMessage(midiMsg []byte) {
+	channel := midiMsg[0] & 0xf
+	// Ignore percussion channel
+	if channel == 9 {
+		return
 	}
-	return 0
+	// Force channel 1
+	midiMsg[0] = midiMsg[0] & 0xf0
+	switch midiMsg[0] {
+	// Note off
+	case 0x80:
+		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
+			return
+		}
+	// Note on
+	case 0x90:
+		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
+			return
+		}
+		if midiMsg[2] < app.MinTriggerVelocity {
+			midiMsg[0] = 0x80
+		}
+	// After touch
+	case 0xa0:
+		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
+			return
+		}
+		if midiMsg[2] == 0 {
+			midiMsg[0] = 0x80
+		}
+	// Control change
+	case 0xb0:
+		// Block bank select
+		if midiMsg[1] == 0x00 || midiMsg[1] == 0x20 {
+			return
+		}
+	// Channel pressure
+	case 0xd0:
+	// Ignore other messages
+	default:
+		return
+	}
+	app.pendingNotes <- &midiMessage{
+		Time: time.Now(),
+		Msg:  midiMsg,
+	}
 }
 
 func (app *application) sendMidiOutMessage(note *midiMessage) error {
@@ -265,4 +262,20 @@ func (app *application) sendAllNoteOff() error {
 		}
 	}
 	return nil
+}
+
+func getMidiInDevName(uDeviceID uintptr) (string, error) {
+	lpMidiInCaps, err := winmm.MidiInGetDevCaps(uDeviceID)
+	if err != nil {
+		return fmt.Sprintf("(Error: %s)", err.Error()), err
+	}
+	return windows.UTF16ToString(lpMidiInCaps.SzPname[:]), nil
+}
+
+func getMidiOutDevName(uDeviceID uintptr) (string, error) {
+	lpMidiOutCaps, err := winmm.MidiOutGetDevCaps(uDeviceID)
+	if err != nil {
+		return fmt.Sprintf("(Error: %s)", err.Error()), err
+	}
+	return windows.UTF16ToString(lpMidiOutCaps.SzPname[:]), nil
 }
