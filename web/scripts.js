@@ -275,17 +275,29 @@
         requestHTTP("PUT", "/midi-output-transpose", synthTranspose.value, countLoad, countError);
     }
 
-    function onNTPSyncClicked() { }
+    function onNTPSyncClicked() {
+        reportError("Feature not implemented yet");
+    }
 
-    function onCurrentTimeCopyClicked() { }
+    function onCurrentTimeCopyClicked() {
+        reportError("Feature not implemented yet");
+    }
 
-    function onMIDIFileChanged() { }
+    function onMIDIFileChanged() {
+        reportError("Feature not implemented yet");
+    }
 
-    function onMIDITrackNumberChanged() { }
+    function onMIDITrackNumberChanged() {
+        reportError("Feature not implemented yet");
+    }
 
-    function onMIDIOffsetMsChanged() { }
+    function onMIDIOffsetMsChanged() {
+        reportError("Feature not implemented yet");
+    }
 
-    function onSchedSetClicked() { }
+    function onSchedSetClicked() {
+        reportError("Feature not implemented yet");
+    }
 
     document.getElementById("midi-input-refresh").addEventListener("click", onMidiInputRefreshClicked);
     document.getElementById("midi-input-device").addEventListener("change", onMidiInputDeviceChanged);
