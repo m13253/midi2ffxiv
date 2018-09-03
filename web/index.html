@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MIDI2FFXIV Control Panel</title>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css" integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css" integrity="sha384-b92sF+wDNTHrfEtRaYo+EpcA8FUyHOSXrdxKc9XB9kaaX1rSQAgMevW6cYeE5Bdv" crossorigin="anonymous" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="flexbody">
+    <header>
+        <div class="container">
+            <h1>MIDI2FFXIV Control Panel</h1>
+        </div>
+    </header>
+    <main>
+        <div class="container pure-g pure-form">
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">MIDI Input Device</h2>
+                    <label class="pure-u-1 padding-input" for="midi-input-device">Input devices</label>
+                    <br />
+                    <input class="pure-u-1 pure-button round-top" type="button" id="midi-input-refresh" value="Refresh" />
+                    <br />
+                    <select class="pure-u-1 round-bottom" id="midi-input-device" name="midi-input-device" size="9">
+                        <option value="-1" selected="selected">(None)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">Local Synth Preview</h2>
+                    <label class="pure-u-1 padding-input" for="midi-output-device">Output devices</label>
+                    <br />
+                    <input class="pure-u-1 pure-button round-top" type="button" id="midi-output-refresh" value="Refresh" />
+                    <br />
+                    <select class="pure-u-1 round-bottom" id="midi-output-device" name="midi-output-device" size="9">
+                        <option value="-1" selected="selected">(None)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">Synth Instrument</h2>
+                    <label class="pure-u-1-3 padding-input" for="synth-bank">Bank</label>
+                    <label class="pure-u-1-3 padding-input" for="synth-patch">Patch</label>
+                    <label class="pure-u-1-3 padding-input" for="synth-transpose">Transpose</label>
+                    <br />
+                    <input class="pure-u-1-3 round-nw" type="number" id="synth-bank" name="synth-bank" min="0" max="16383" placeholder="0" value="0" />
+                    <input class="pure-u-1-3 round-none" type="number" id="synth-patch" name="synth-patch" min="1" max="128" placeholder="47" value="47" />
+                    <input class="pure-u-1-3 round-ne" type="number" id="synth-transpose" name="synth-transpose" min="-120" max="120" step="12" placeholder="0" value="0" />
+                    <br />
+                    <select class="pure-u-1-1 round-bottom" id="synth-instrument" size="9">
+                        <option value="0:47" selected="selected">Harp</option>
+                        <option value="0:1">Grand Piano</option>
+                        <option value="0:26">Steel Guitar / Lute</option>
+                        <option value="0:46">Pizzcato / Fiddle</option>
+                        <option value="0:74">Flute</option>
+                        <option value="0:69">Oboe</option>
+                        <option value="0:72">Clarinet</option>
+                        <option value="0:73">Piccolo / Fife</option>
+                        <option value="0:76">Panpipes / Panflute</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">Time Synchronization</h2>
+                    <label class="pure-u-1 padding-input" for="ntp-server">NTP Server</label>
+                    <input class="pure-u-3-4 round-left" id="ntp-server" name="ntp-server" placeholder="pool.ntp.org" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="ntp-sync" value="Sync" />
+                    <br />
+                    <label class="pure-u-1 padding-input" for="current-time">Current time:</label>
+                    <input class="pure-u-3-4 round-left" id="current-time" name="current-time" placeholder="-- : -- : -- . --- (&#177;0ms)" readonly="readonly" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="current-time-copy" value="Copy" />
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">MIDI File Playback</h2>
+                    <label class="pure-u-1 padding-input" for="midi-file">MIDI File</label>
+                    <input class="pure-u-1" type="file" id="midi-file" name="midi-file" accept="audio/midi" />
+                    <br />
+                    <label class="pure-u-1-2 padding-input" for="midi-track-number">Track Number</label>
+                    <label class="pure-u-1-2 padding-input" for="midi-offset-ms">Offset (ms)</label>
+                    <br />
+                    <input class="pure-u-1-2 round-left" type="number" id="midi-track-number" name="midi-track-number" min="0" max="65535" placeholder="1" value="1" />
+                    <input class="pure-u-1-2 round-right" type="number" id="midi-offset-ms" name="midi-offset-ms" step="any" placeholder="0" value="0" />
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">Scheduler</h2>
+                    <label class="pure-u-1 padding-input" for="sched-start-time">Start Time</label>
+                    <input class="pure-u-3-4 round-left" id="sched-start-time" name="sched-start-time" placeholder="-- : -- : --" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="sched-set" value="Set" />
+                    <br />
+                    <label class="pure-u-1 padding-input">
+                        <input type="checkbox" id="sched-loop-enabled" /> Loop every
+                    </label>
+                    <input class="pure-u-1" id="sched-loop-interval" placeholder="-- : -- : --" />
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            &copy; 2018 StarBrilliant. Made with &#9829;&#65038; and <a href="https://github.com/m13253/midi2ffxiv">source code</a> available.
+        </div>
+    </footer>
+    <div id="float-container"></div>
+    <script language="javascript" src="scripts.js"></script>
+    <script language="javascript">
+        (function () {
+            var el = document.createElement("link");
+            el.setAttribute("rel", "stylesheet");
+            el.setAttribute("href", "https://fonts.googleapis.com/css?family=Lato:400");
+            el.setAttribute("crossorigin", "anonymous");
+            document.head.appendChild(el);
+        })();
+    </script>
+</body>
+
+</html>

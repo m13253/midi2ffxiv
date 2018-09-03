@@ -1,7 +1,7 @@
 // +build windows
 
 /*
-   MIDI2FFXIV-Realtime
+   MIDI2FFXIV
    Copyright (C) 2017-2018 Star Brilliant <m13253@hotmail.com>
 
    Permission is hereby granted, free of charge, to any person obtaining a
@@ -47,6 +47,7 @@ const (
 	VK_SHIFT              uint16  = 0x10
 	VK_CONTROL            uint16  = 0x11
 	VK_MENU               uint16  = 0x12
+	WM_QUIT               uint32  = 0x0012
 )
 
 type INPUT_KEYBDINPUT struct {
@@ -99,10 +100,10 @@ var (
 	dispatchMessage  *windows.LazyProc
 	getMessage       *windows.LazyProc
 	mapVirtualKey    *windows.LazyProc
+	postMessage      *windows.LazyProc
 	translateMessage *windows.LazyProc
 	registerClassEx  *windows.LazyProc
 	sendInput        *windows.LazyProc
-	//DefWindowProcAddr uintptr
 )
 
 func init() {
@@ -112,10 +113,10 @@ func init() {
 	dispatchMessage = user32.NewProc("DispatchMessageW")
 	getMessage = user32.NewProc("GetMessageW")
 	mapVirtualKey = user32.NewProc("MapVirtualKeyW")
+	postMessage = user32.NewProc("PostMessageW")
 	translateMessage = user32.NewProc("TranslateMessage")
 	registerClassEx = user32.NewProc("RegisterClassExW")
 	sendInput = user32.NewProc("SendInput")
-	//DefWindowProcAddr = defWindowProc.Addr()
 }
 
 func CreateWindowEx(dwExStyle uint32, lpClassName uintptr, lpWindowName string, dwStyle uint32, x, y, nWidth, nHeight int32, hWndParent, hMenu, hInstance uintptr, lpParam unsafe.Pointer) (hWnd uintptr, err error) {
@@ -154,6 +155,14 @@ func MapVirtualKey(uCode, uMapType uint32) (uResult uint32) {
 	r1, _, _ := mapVirtualKey.Call(uintptr(uCode), uintptr(uMapType))
 	uResult = uint32(r1)
 	return
+}
+
+func PostMessage(hWnd uintptr, Msg uint32, wParam, lParam uintptr) (bResult bool, err error) {
+	r1, _, err := postMessage.Call(hWnd, uintptr(Msg), wParam, lParam)
+	if uint32(r1) == 0 {
+		return
+	}
+	return true, nil
 }
 
 func TranslateMessage(lpMsg *MSG) (bResult bool) {

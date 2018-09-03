@@ -1,7 +1,7 @@
 // +build windows
 
 /*
-   MIDI2FFXIV-Realtime
+   MIDI2FFXIV
    Copyright (C) 2017-2018 Star Brilliant <m13253@hotmail.com>
 
    Permission is hereby granted, free of charge, to any person obtaining a
@@ -42,6 +42,10 @@ type preset struct {
 	SkillCooldown      time.Duration
 	MinTriggerVelocity uint8
 	Keybinding         [128]keybindingPreset
+
+	WebListenAddr string
+	WebUsername   string
+	WebPassword   string
 }
 
 var defaultPreset = preset{
@@ -91,4 +95,5 @@ var defaultPreset = preset{
 
 		0x54: {'I', false, false, true},
 	},
+	WebListenAddr: ":65300",
 }

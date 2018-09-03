@@ -1,7 +1,7 @@
 // +build windows
 
 /*
-   MIDI2FFXIV-Realtime
+   MIDI2FFXIV
    Copyright (C) 2017-2018 Star Brilliant <m13253@hotmail.com>
 
    Permission is hereby granted, free of charge, to any person obtaining a
@@ -36,22 +36,23 @@ type MidiInError uint32
 type MidiOutError uint32
 
 const (
-	MMSYSERR_NOERROR  uint32 = 0
-	CALLBACK_NULL     uint32 = 0
-	CALLBACK_WINDOW   uint32 = 0x10000
-	CALLBACK_THREAD   uint32 = 0x20000
-	CALLBACK_FUNCTION uint32 = 0x30000
-	MIDI_IO_STATUS    uint32 = 32
-	MM_MIM_OPEN       uint32 = 0x3c1
-	MM_MIM_CLOSE      uint32 = 0x3c2
-	MM_MIM_DATA       uint32 = 0x3c3
-	MM_MIM_LONGDATA   uint32 = 0x3c4
-	MM_MIM_ERROR      uint32 = 0x3c5
-	MM_MIM_LONGERROR  uint32 = 0x3c6
-	MM_MOM_OPEN       uint32 = 0x3c7
-	MM_MOM_CLOSE      uint32 = 0x3c8
-	MM_MOM_DONE       uint32 = 0x3c9
-	MM_MIM_MOREDATA   uint32 = 0x3cc
+	MMSYSERR_NOERROR     uint32 = 0
+	MMSYSERR_BADDEVICEID uint32 = 2
+	CALLBACK_NULL        uint32 = 0
+	CALLBACK_WINDOW      uint32 = 0x10000
+	CALLBACK_THREAD      uint32 = 0x20000
+	CALLBACK_FUNCTION    uint32 = 0x30000
+	MIDI_IO_STATUS       uint32 = 32
+	MM_MIM_OPEN          uint32 = 0x3c1
+	MM_MIM_CLOSE         uint32 = 0x3c2
+	MM_MIM_DATA          uint32 = 0x3c3
+	MM_MIM_LONGDATA      uint32 = 0x3c4
+	MM_MIM_ERROR         uint32 = 0x3c5
+	MM_MIM_LONGERROR     uint32 = 0x3c6
+	MM_MOM_OPEN          uint32 = 0x3c7
+	MM_MOM_CLOSE         uint32 = 0x3c8
+	MM_MOM_DONE          uint32 = 0x3c9
+	MM_MIM_MOREDATA      uint32 = 0x3cc
 )
 
 type MIDIINCAPS struct {
