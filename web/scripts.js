@@ -338,7 +338,7 @@
         button.disabled = true;
         setTimeout(function onTimeout() {
             button.disabled = false;
-        }, 1000);
+        }, 4000);
         requestHTTP("PUT", "/ntp-sync-server", server, function onLoad(event, response) {
             doUpdateServerTime();
             reportMessage("Time synced to " + server);
