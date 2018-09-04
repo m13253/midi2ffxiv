@@ -453,6 +453,15 @@
         var startTime = new Date(0);
         if (startTimeMatch) {
             startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), +startTimeMatch[1], +startTimeMatch[2], +startTimeMatch[3], 0);
+            if (startTime.getTime() < now.getTime()) {
+                if (now.getTime() - startTime.getTime() > 43200000) {
+                    startTime.setDate(startTime.getDate() + 1);
+                }
+            } else {
+                if (startTime.getTime() - now.getTime() > 43200000) {
+                    startTime.setDate(startTime.getDate() - 1);
+                }
+            }
         }
         var loopInterval = 0;
         if (loopIntervalMatch) {
