@@ -217,7 +217,7 @@ func (app *application) onMidiInEvent(event []byte) {
 		}
 	// Program change
 	case 0xc0:
-		event = event[:2]
+		return
 	// Channel pressure
 	case 0xd0:
 		event = event[:2]

@@ -130,7 +130,9 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 
 			status := event.GetStatus()
 			data := event.GetData()
-			if status == smf.MetaStatus && len(data) > 1 && data[0] == smf.MetaSetTempo {
+			if status == smf.NoteOnStatus && data[0] == 0 {
+				status = smf.NoteOffStatus
+			} else if status == smf.MetaStatus && len(data) > 1 && data[0] == smf.MetaSetTempo {
 				if len(data) != 5 || data[1] != 3 {
 					return errors.New("Unrecognized MIDI tempo settings")
 				}
