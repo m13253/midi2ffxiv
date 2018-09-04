@@ -26,7 +26,7 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"time"
 
 	"github.com/beevik/ntp"
@@ -37,10 +37,11 @@ func (app *application) processNTP() {
 }
 
 func (app *application) syncTime(ntpServer string) error {
+	now := time.Now()
 	app.ntpMutex.RLock()
-	if time.Now().Sub(app.NtpLastSync) < app.NtpCooldown {
+	if now.Sub(app.NtpLastSync) < app.NtpCooldown {
 		app.ntpMutex.RUnlock()
-		return errors.New("Time already synchronized")
+		return fmt.Errorf("please wait %d sec before syncing again", (app.NtpLastSync.Add(app.NtpCooldown).Sub(now))/time.Second+1)
 	}
 	app.ntpMutex.RUnlock()
 	ntpOptions := ntp.QueryOptions{
@@ -49,6 +50,9 @@ func (app *application) syncTime(ntpServer string) error {
 	clockOffset := time.Duration(0)
 	rootDistance := time.Duration(0)
 	for i := 0; i < 4; i++ {
+		if i != 0 {
+			time.Sleep(1 * time.Second)
+		}
 		ntpResponse, err := ntp.QueryWithOptions(ntpServer, ntpOptions)
 		if err != nil {
 			return err
