@@ -154,6 +154,10 @@ func (app *application) processMidi() {
 		select {
 		case nextNote := <-app.pendingNotes:
 			now := time.Now()
+			nextNote = &midiMessage{
+				Time: nextNote.Time,
+				Msg:  nextNote.Msg,
+			}
 
 			if (nextNote.Msg[0] == 0x90 || nextNote.Msg[0] == 0xa0) && now.Sub(nextNote.Time) > app.MaxNoteDelay {
 				continue
@@ -161,14 +165,6 @@ func (app *application) processMidi() {
 
 			if app.lastNoteOn != nil && ((nextNote.Msg[0] == 0x80 && nextNote.Msg[1] == app.lastNoteOn.Msg[1]) || nextNote.Msg[0] == 0x90) && now.Sub(app.lastNoteOn.Time) < app.SkillCooldown {
 				time.Sleep(app.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
-				now = time.Now()
-			}
-
-			_, err := app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
-				return nil, app.sendMidiOutMessage(nextNote)
-			})
-			if err != nil {
-				fmt.Println("Error: ", err)
 			}
 
 			if nextNote.Msg[0] == 0x80 || nextNote.Msg[0] == 0x90 {
@@ -178,7 +174,16 @@ func (app *application) processMidi() {
 				})
 			}
 
+			_ = app.MidiGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+				err := app.sendMidiOutMessage(nextNote)
+				if err != nil {
+					fmt.Println("Error: ", err)
+				}
+				return nil, nil
+			})
+
 			if nextNote.Msg[0] == 0x90 {
+				now = time.Now()
 				nextNote.Time = now
 				app.lastNoteOn = nextNote
 			}
