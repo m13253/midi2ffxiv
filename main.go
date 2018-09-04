@@ -28,7 +28,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"syscall"
@@ -46,38 +45,34 @@ type application struct {
 	preset
 
 	Quit          context.CancelFunc
+	NTPGoro       cgc.Executor
 	MidiGoro      cgc.Executor
 	PlaybackGoro  cgc.Executor
 	KeystrokeGoro cgc.Executor
 
-	MidiInDevice         int
-	MidiOutDevice        int
-	MidiOutBank          uint16
-	MidiOutPatch         uint8
-	MidiOutTranspose     int
-	MidiPlaybackFile     io.ReadSeeker
-	MidiPlaybackTrack    uint16
-	MidiPlaybackOffset   float64
-	MidiPlaybackSchedule time.Time
-	MidiPlaybackLoop     time.Duration
-	MidiPlaybackEnabled  bool
-	NtpOffset            float64
+	MidiInDevice                int
+	MidiOutDevice               int
+	MidiOutBank                 uint16
+	MidiOutPatch                uint8
+	MidiOutTranspose            int
+	MidiPlaybackTrack           uint16
+	MidiPlaybackOffset          float64
+	MidiPlaybackSchedule        time.Time
+	MidiPlaybackScheduleEnabled bool
+	MidiPlaybackLoop            time.Duration
+	MidiPlaybackLoopEnabled     bool
+	NtpOffset                   time.Duration
+	NtpMaxDeviation             time.Duration
 
 	hWnd        uintptr
 	hMidiIn     uintptr
 	hMidiOut    uintptr
 	sysexBuffer [2]*winmm.MIDIHDR
 
-	ctx          context.Context
-	midiBuffer   *midiBuffer
-	pendingNotes chan *midiMessage
-	lastNoteOn   *midiMessage
-	keyStatus    *keystrokeStatus
-}
-
-type midiMessage struct {
-	Time time.Time
-	Msg  []byte
+	ctx            context.Context
+	midiFileBuffer *midiFileBuffer
+	pendingNotes   chan *midiRealtimeEvent
+	keyStatus      *keystrokeStatus
 }
 
 func main() {
@@ -106,7 +101,7 @@ func (app *application) run(args []string) int {
 	app.MidiOutPatch = 46
 	app.MidiOutTranspose = 0
 
-	app.pendingNotes = make(chan *midiMessage, 256)
+	app.pendingNotes = make(chan *midiRealtimeEvent, 256)
 
 	err := app.startWebServer()
 	if err != nil {
@@ -154,20 +149,16 @@ func (app *application) processMidi() {
 		select {
 		case nextNote := <-app.pendingNotes:
 			now := time.Now()
-			nextNote = &midiMessage{
-				Time: nextNote.Time,
-				Msg:  nextNote.Msg,
+			nextNote = &midiRealtimeEvent{
+				Time:    nextNote.Time,
+				Message: nextNote.Message,
 			}
 
-			if (nextNote.Msg[0] == 0x90 || nextNote.Msg[0] == 0xa0) && now.Sub(nextNote.Time) > app.MaxNoteDelay {
+			if (nextNote.Message[0] == 0x90 || nextNote.Message[0] == 0xa0) && now.Sub(nextNote.Time) > app.MaxNoteDelay {
 				continue
 			}
 
-			if app.lastNoteOn != nil && ((nextNote.Msg[0] == 0x80 && nextNote.Msg[1] == app.lastNoteOn.Msg[1]) || nextNote.Msg[0] == 0x90) && now.Sub(app.lastNoteOn.Time) < app.SkillCooldown {
-				time.Sleep(app.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
-			}
-
-			if nextNote.Msg[0] == 0x80 || nextNote.Msg[0] == 0x90 {
+			if nextNote.Message[0] == 0x80 || nextNote.Message[0] == 0x90 {
 				_, _ = app.KeystrokeGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
 					app.produceKeystroke(nextNote)
 					return nil, nil
@@ -181,12 +172,6 @@ func (app *application) processMidi() {
 				}
 				return nil, nil
 			})
-
-			if nextNote.Msg[0] == 0x90 {
-				now = time.Now()
-				nextNote.Time = now
-				app.lastNoteOn = nextNote
-			}
 		case <-app.ctx.Done():
 			break
 		}
@@ -234,17 +219,17 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 	case winmm.MM_MIM_OPEN:
 	case winmm.MM_MIM_CLOSE:
 	case winmm.MM_MIM_DATA, winmm.MM_MIM_MOREDATA:
-		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
+		midiEvent := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
 		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
-			app.onMidiInMessage(midiMsg)
+			app.onMidiInEvent(midiEvent)
 			return nil, nil
 		})
 	case winmm.MM_MIM_LONGDATA:
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := make([]byte, midiHeader.DwBytesRecorded)
-		copy(midiMsg, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
+		midiEvent := make([]byte, midiHeader.DwBytesRecorded)
+		copy(midiEvent, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
 		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
-			app.onMidiInMessage(midiMsg)
+			app.onMidiInEvent(midiEvent)
 			return nil, nil
 		})
 		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
@@ -252,13 +237,13 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 			fmt.Println("Error: ", err)
 		}
 	case winmm.MM_MIM_ERROR:
-		midiMsg := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
+		midiEvent := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
+		fmt.Printf("Invalid MIDI message: %x\n", midiEvent)
 	case winmm.MM_MIM_LONGERROR:
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := make([]byte, midiHeader.DwBytesRecorded)
-		copy(midiMsg, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
-		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
+		midiEvent := make([]byte, midiHeader.DwBytesRecorded)
+		copy(midiEvent, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
+		fmt.Printf("Invalid MIDI message: %x\n", midiEvent)
 		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
 		if err != nil {
 			fmt.Println("Error: ", err)

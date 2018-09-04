@@ -26,33 +26,44 @@
 package main
 
 import (
+	"errors"
 	"io"
+	"time"
 
 	"github.com/algoGuy/EasyMIDI/smf"
-	_ "github.com/algoGuy/EasyMIDI/smfio"
+	"github.com/algoGuy/EasyMIDI/smfio"
 	cgc "github.com/m13253/cgc-go"
 )
 
-type midiBuffer struct {
-	TempoTable   []tempoEntry
-	CurrentTrack *smf.Track
+type midiFileBuffer struct {
+	MidiTracks       []midiFileTrack
+	TempoTable       []tempoEntry
+	TicksPerBeat     uint16
+	playbackEnabled  bool
+	playbackProgress int
+}
+
+type midiFileTrack []*midiFileEvent
+
+type midiFileEvent struct {
+	TicksElapsed uint64
+	Microseconds midiFileAbsoluteTime
+	Message      []byte
+}
+
+type midiFileAbsoluteTime struct {
+	Numerator   uint64
+	Denominator uint16 // = TicksPerBeat
 }
 
 type tempoEntry struct {
-	RawIndex     uint
-	Ticks        uint64
-	TicksPerBeat uint16
-	MsPerBeat    uint64
+	TicksElapsed        uint64
+	MicrosecondsPerBeat uint32
 }
 
 func (app *application) processPlayback() {
-	app.midiBuffer = &midiBuffer{
-		TempoTable: []tempoEntry{{
-			RawIndex:     0,
-			Ticks:        0,
-			TicksPerBeat: 1,
-			MsPerBeat:    500000,
-		}},
+	app.midiFileBuffer = &midiFileBuffer{
+		playbackProgress: -1,
 	}
 	for {
 		select {
@@ -67,7 +78,85 @@ func (app *application) processPlayback() {
 	}
 }
 
-func (app *application) setMidiPlaybackFile(midiPlaybackFile io.ReadSeeker, trackNumber uint16) error {
-	app.MidiPlaybackFile = midiPlaybackFile
+func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
+	var err error
+	parsedFile, err := smfio.Read(midiFile)
+	if err != nil {
+		return err
+	}
+	midiTracks := make([]midiFileTrack, parsedFile.GetTracksNum())
+	tempoTable := []tempoEntry{}
+	division := parsedFile.GetDivision()
+	if division.IsSMTPE() {
+		return errors.New("MIDI with SMTPE timestamps is unsupported")
+	}
+	for trackID := range midiTracks {
+		if parsedFile.GetFormat() == smf.Format2 {
+			tempoTable = []tempoEntry{}
+		}
+		parsedTrack := parsedFile.GetTrack(1)
+		track := make([]*midiFileEvent, 0, parsedTrack.Len())
+
+		ticks := uint64(0)
+		msNumerator := uint64(0)
+		msDemonimator := division.GetTicks()
+		msPerBeat := uint32(500000)
+		nextTempoEntry := 0
+
+		it := parsedTrack.GetIterator()
+		for {
+			event := it.GetValue()
+			delta := uint64(event.GetDTime())
+
+			for nextTempoEntry < len(tempoTable) && ticks+delta > tempoTable[nextTempoEntry].TicksElapsed {
+				delta -= tempoTable[nextTempoEntry].TicksElapsed - ticks
+				msNumerator += (tempoTable[nextTempoEntry].TicksElapsed - ticks) * uint64(msPerBeat)
+				msPerBeat = tempoTable[nextTempoEntry].MicrosecondsPerBeat
+				ticks = tempoTable[nextTempoEntry].TicksElapsed
+				nextTempoEntry++
+			}
+
+			msNumerator += delta * uint64(msPerBeat)
+			ticks += delta
+
+			status := event.GetStatus()
+			data := event.GetData()
+			if status == smf.MetaStatus && data[0] == smf.MetaSetTempo {
+				if len(data) != 5 || data[1] != 3 {
+					return errors.New("Unrecognized MIDI tempo settings")
+				}
+				msPerBeat = (uint32(data[2]) << 16) | (uint32(data[3]) << 8) | uint32(data[4])
+				tempoTable = append(tempoTable, tempoEntry{
+					TicksElapsed:        ticks,
+					MicrosecondsPerBeat: msPerBeat,
+				})
+			}
+
+			message := make([]byte, len(data)+1)
+			message[0] = status
+			copy(message[1:], data)
+			track = append(track, &midiFileEvent{
+				TicksElapsed: ticks,
+				Microseconds: midiFileAbsoluteTime{
+					msNumerator,
+					msDemonimator,
+				},
+				Message: message,
+			})
+
+			if !it.MoveNext() {
+				break
+			}
+		}
+
+		midiTracks[trackID] = track
+	}
+	app.midiFileBuffer.MidiTracks = midiTracks
+	app.midiFileBuffer.TempoTable = tempoTable
+	app.midiFileBuffer.TicksPerBeat = division.GetTicks()
 	return nil
+}
+
+func (m midiFileAbsoluteTime) Duration() time.Duration {
+	return time.Duration(m.Numerator) * time.Microsecond / time.Duration(m.Denominator)
 }

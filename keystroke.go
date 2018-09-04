@@ -48,6 +48,7 @@ type keystrokeStatus struct {
 	ctrl                keystroke
 	alt                 keystroke
 	shift               keystroke
+	lastNoteOn          *midiRealtimeEvent
 	clearModifiersTimer *time.Timer
 }
 
@@ -70,12 +71,12 @@ func (app *application) processKeystrokes() {
 	}
 }
 
-func (app *application) produceKeystroke(note *midiMessage) {
+func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
 	now := time.Now()
-	if note.Msg[0] == 0x90 {
+	if event.Message[0] == 0x90 {
 		app.keyStatus.clearModifiersTimer.Stop()
-		keybind := app.Keybinding[int(note.Msg[1])]
+		keybind := app.Keybinding[int(event.Message[1])]
 		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 				Type: user32.INPUT_KEYBOARD,
@@ -179,6 +180,12 @@ func (app *application) produceKeystroke(note *midiMessage) {
 			time.Sleep(app.ModifierCooldown)
 			now = time.Now()
 		}
+		if app.keyStatus.lastNoteOn != nil && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNoteOn.Message[1]) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteOn.Time) < app.SkillCooldown {
+			time.Sleep(app.keyStatus.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
+			now = time.Now()
+		}
+		event.Time = now
+		app.keyStatus.lastNoteOn = event
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,
 			Ki: user32.KEYBDINPUT{
@@ -190,12 +197,12 @@ func (app *application) produceKeystroke(note *midiMessage) {
 			},
 		})
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = true
-		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote = note.Msg[1]
+		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote = event.Message[1]
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastPress = now
 		app.keyStatus.pressedKeysCount++
-	} else if note.Msg[0] == 0x80 {
-		keybind := app.Keybinding[int(note.Msg[1])]
-		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == note.Msg[1] {
+	} else if event.Message[0] == 0x80 {
+		keybind := app.Keybinding[int(event.Message[1])]
+		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == event.Message[1] {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 				Type: user32.INPUT_KEYBOARD,
 				Ki: user32.KEYBDINPUT{

@@ -1,5 +1,7 @@
 (function () {
 
+    "use strict";
+
     function requestHTTP(method, url, body, onLoad, onError) {
         var xhr = new XMLHttpRequest();
         xhr.onerror = function onerror(event) {
@@ -211,7 +213,7 @@
         countLoad = function countLoad(event, response) {
             numLoaded++;
             if (numLoaded == 3) {
-                doSynthInstrumentUpdate
+                doSynthInstrumentUpdate();
             }
         }
         countError = function countError(event, error) {
@@ -284,7 +286,13 @@
     }
 
     function onMIDIFileChanged() {
-        reportError("Feature not implemented yet");
+        if (this.files.length > 0) {
+            requestHTTP("PUT", "/midi-playback-file", this.files[0], function onLoad(event, response) {
+                reportMessage("Loaded: " + this.files.name);
+            }, function onError(event, error) {
+                reportError(error);
+            });
+        }
     }
 
     function onMIDITrackNumberChanged() {

@@ -59,6 +59,7 @@ func (app *application) startWebServer() error {
 	h.serveMux.HandleFunc("/midi-output-bank", h.midiOutputBank)
 	h.serveMux.HandleFunc("/midi-output-patch", h.midiOutputPatch)
 	h.serveMux.HandleFunc("/midi-output-transpose", h.midiOutputTranspose)
+	h.serveMux.HandleFunc("/midi-playback-file", h.midiPlaybackFile)
 
 	originalAddr, err := net.ResolveTCPAddr("tcp", app.WebListenAddr)
 	availableAddr := new(net.TCPAddr)
@@ -300,6 +301,22 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 		return nil, nil
 	})
 	writeJSON(w, result)
+}
+
+func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		_, err := h.app.PlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			return nil, h.app.setMidiPlaybackFile(r.Body)
+		})
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 503)
+		}
+
+		writeJSON(w, struct{}{})
+	}
+
+	http.Error(w, "Method Not Allowed", 405)
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
