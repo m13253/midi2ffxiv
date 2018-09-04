@@ -98,7 +98,7 @@
         if (suppressEvents) { return; }
         var value = this.value;
         var text = this.options[this.selectedIndex].text;
-        requestHTTP("PUT", "/midi-input-device", value, function onLoad() {
+        requestHTTP("PUT", "/midi-input-device", value, function onLoad(event, response) {
             reportMessage("MIDI input device changed to " + text + ".");
         }, function onError(event, error) {
             reportError(error);
@@ -136,7 +136,7 @@
         if (suppressEvents) { return; }
         var value = this.value;
         var text = this.options[this.selectedIndex].text;
-        requestHTTP("PUT", "/midi-output-device", value, function onLoad() {
+        requestHTTP("PUT", "/midi-output-device", value, function onLoad(event, response) {
             reportMessage("MIDI output device changed to " + text + ".");
         }, function onError(event, error) {
             reportError(error);
@@ -174,8 +174,8 @@
     function onSynthBankChanged() {
         if (suppressEvents) { return; }
         var value = this.value;
-        doSynthInstrumentUpdate();
-        requestHTTP("PUT", "/midi-output-bank", value, function onLoad() {
+        doSynthInstrumentRefresh();
+        requestHTTP("PUT", "/midi-output-bank", value, function onLoad(event, response) {
             reportMessage("MIDI bank changed to " + value + ".");
         }, function onError(event, error) {
             reportError(error);
@@ -185,8 +185,8 @@
     function onSynthPatchChanged() {
         if (suppressEvents) { return; }
         var value = this.value;
-        doSynthInstrumentUpdate();
-        requestHTTP("PUT", "/midi-output-patch", value - 1, function onLoad() {
+        doSynthInstrumentRefresh();
+        requestHTTP("PUT", "/midi-output-patch", value - 1, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
         }, function onError(event, error) {
             reportError(error);
@@ -196,8 +196,8 @@
     function onSynthTransposeChanged() {
         if (suppressEvents) { return; }
         var value = this.value;
-        doSynthInstrumentUpdate();
-        requestHTTP("PUT", "/midi-output-transpose", value, function onLoad() {
+        doSynthInstrumentRefresh();
+        requestHTTP("PUT", "/midi-output-transpose", value, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
         }, function onError(event, error) {
             reportError(error);
@@ -205,6 +205,7 @@
     }
 
     function doSynthInstrumentRefresh() {
+        if (suppressEvents) { return; }
         var synthBank = document.getElementById("synth-bank");
         var synthPatch = document.getElementById("synth-patch");
         var synthTranspose = document.getElementById("synth-transpose");
@@ -286,21 +287,7 @@
         "max_deviation": 0,
     };
 
-    function doGetServerTime() {
-        var before = Date.now();
-        requestHTTP("GET", "/current-time", null, function onLoad(event, response) {
-            var after = Date.now();
-            var rtt = (after - before) * 0.001;
-            response["time"] += rtt / 2;
-            response["offset"] = response["time"] - after * 0.001;
-            response["max_deviation"] += rtt;
-            serverTime = response;
-        }, function onError(event, error) {
-            serverTime["synced"] = false;
-        });
-    }
-
-    function updateServerTime() {
+    function displayServerTime() {
         var el = document.getElementById("current-time");
         try {
             var now = new Date(Date.now() + serverTime["offset"] * 1000);
@@ -317,12 +304,26 @@
         } catch (e) {
             el.value = "-- : -- : --.--- (unsynced)";
         }
-        requestAnimationFrame(updateServerTime);
+        requestAnimationFrame(displayServerTime);
     }
 
-    function getServerTime() {
-        doGetServerTime();
-        setTimeout(getServerTime, 5000);
+    function doUpdateServerTime() {
+        var before = Date.now();
+        requestHTTP("GET", "/current-time", null, function onLoad(event, response) {
+            var after = Date.now();
+            var rtt = (after - before) * 0.001;
+            response["time"] += rtt / 2;
+            response["offset"] = response["time"] - after * 0.001;
+            response["max_deviation"] += rtt;
+            serverTime = response;
+        }, function onError(event, error) {
+            serverTime["synced"] = false;
+        });
+    }
+
+    function updateServerTime() {
+        doUpdateServerTime();
+        setTimeout(updateServerTime, 5000);
     }
 
     function onNTPSyncClicked() {
@@ -333,7 +334,7 @@
             button.disabled = false;
         }, 5000);
         requestHTTP("PUT", "/ntp-sync-server", server, function onLoad(event, response) {
-            doGetServerTime();
+            doUpdateServerTime();
             reportMessage("Time synced to " + server);
         }, function onError(event, error) {
             reportError(error);
@@ -355,12 +356,38 @@
         }
     }
 
+    function doMIDITrackNumberRefresh() {
+        requestHTTP("GET", "/midi-playback-track", null, function onLoad(event, response) {
+            document.getElementById("midi-track-number").value = response["track"];
+        }, function onError(event, error) {
+        });
+    }
+
     function onMIDITrackNumberChanged() {
-        reportError("Feature not implemented yet");
+        if (suppressEvents) { return; }
+        var value = this.value;
+        requestHTTP("PUT", "/midi-playback-track", value, function onLoad(event, response) {
+            reportMessage("MIDI track changed to #" + value + ".");
+        }, function onError(event, error) {
+            reportError(error);
+        })
+    }
+
+    function doMIDIOffsetMsRefresh() {
+        requestHTTP("GET", "/midi-playback-offset", null, function onLoad(event, response) {
+            document.getElementById("midi-offset-ms").value = Math.round(response["offset"] * 1000);
+        }, function onError(event, error) {
+        });
     }
 
     function onMIDIOffsetMsChanged() {
-        reportError("Feature not implemented yet");
+        if (suppressEvents) { return; }
+        var value = this.value;
+        requestHTTP("PUT", "/midi-playback-offset", value * 0.001, function onLoad(event, response) {
+            reportMessage("MIDI offset changed to " + value + " ms.");
+        }, function onError(event, error) {
+            reportError(error);
+        })
     }
 
     function onSchedSetClicked() {
@@ -385,7 +412,9 @@
     doMidiInputRefresh(true);
     doMidiOutputRefresh(true);
     doSynthInstrumentRefresh();
-    getServerTime();
-    requestAnimationFrame(updateServerTime);
+    doMIDITrackNumberRefresh();
+    doMIDIOffsetMsRefresh();
+    updateServerTime();
+    requestAnimationFrame(displayServerTime);
 
 })();
