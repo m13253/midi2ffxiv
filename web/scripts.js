@@ -173,8 +173,8 @@
 
     function onSynthBankChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
-        doSynthInstrumentRefresh();
+        var value = this.value || "0";
+        doSynthInstrumentUpdate();
         requestHTTP("PUT", "/midi-output-bank", value, function onLoad(event, response) {
             reportMessage("MIDI bank changed to " + value + ".");
         }, function onError(event, error) {
@@ -184,9 +184,9 @@
 
     function onSynthPatchChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
-        doSynthInstrumentRefresh();
-        requestHTTP("PUT", "/midi-output-patch", value - 1, function onLoad(event, response) {
+        var value = this.value || "47";
+        doSynthInstrumentUpdate();
+        requestHTTP("PUT", "/midi-output-patch", +value - 1, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
         }, function onError(event, error) {
             reportError(error);
@@ -195,8 +195,8 @@
 
     function onSynthTransposeChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
-        doSynthInstrumentRefresh();
+        var value = this.value || "0";
+        doSynthInstrumentUpdate();
         requestHTTP("PUT", "/midi-output-transpose", value, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
         }, function onError(event, error) {
@@ -277,7 +277,7 @@
             }
         }
         requestHTTP("PUT", "/midi-output-bank", synthBank.value, countLoad, countError);
-        requestHTTP("PUT", "/midi-output-patch", synthPatch.value - 1, countLoad, countError);
+        requestHTTP("PUT", "/midi-output-patch", +synthPatch.value - 1, countLoad, countError);
         requestHTTP("PUT", "/midi-output-transpose", synthTranspose.value, countLoad, countError);
     }
 
@@ -342,7 +342,16 @@
     }
 
     function onCurrentTimeCopyClicked() {
-        reportError("Feature not implemented yet");
+        var el = document.getElementById("sched-start-time");
+        var now = new Date(Date.now() + serverTime["offset"] * 1000 + 5000);
+        var hours = now.getHours();
+        var minutes = now.getMinutes();
+        var seconds = now.getSeconds();
+        hours = hours < 10 ? "0" + hours : "" + hours;
+        minutes = minutes < 10 ? "0" + minutes : "" + minutes;
+        seconds = seconds < 10 ? "0" + seconds : "" + seconds;
+        el.value = hours + " : " + minutes + " : " + seconds;
+        reportMessage("Scheduled time is set to 5 seconds later.");
     }
 
     function onMIDIFileChanged() {
@@ -365,7 +374,7 @@
 
     function onMIDITrackNumberChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
+        var value = this.value || "1";
         requestHTTP("PUT", "/midi-playback-track", value, function onLoad(event, response) {
             reportMessage("MIDI track changed to #" + value + ".");
         }, function onError(event, error) {
@@ -382,9 +391,8 @@
 
     function onMIDIOffsetMsChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
+        var value = this.value || "0";
         requestHTTP("PUT", "/midi-playback-offset", value * 0.001, function onLoad(event, response) {
-            reportMessage("MIDI offset changed to " + value + " ms.");
         }, function onError(event, error) {
             reportError(error);
         })

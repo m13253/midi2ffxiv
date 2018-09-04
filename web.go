@@ -63,6 +63,8 @@ func (app *application) startWebServer() error {
 	h.serveMux.HandleFunc("/current-time", h.currentTime)
 	h.serveMux.HandleFunc("/ntp-sync-server", h.ntpSyncServer)
 	h.serveMux.HandleFunc("/midi-playback-file", h.midiPlaybackFile)
+	h.serveMux.HandleFunc("/midi-playback-track", h.midiPlaybackTrack)
+	h.serveMux.HandleFunc("/midi-playback-offset", h.midiPlaybackOffset)
 
 	originalAddr, err := net.ResolveTCPAddr("tcp", app.WebListenAddr)
 	availableAddr := new(net.TCPAddr)
@@ -365,6 +367,66 @@ func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Error(w, "Method Not Allowed", 405)
+}
+
+func (h *webHandlers) midiPlaybackTrack(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		value, err := strconv.ParseUint(string(body), 0, 16)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		_, err = h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			h.app.setMidiPlaybackTrack(uint16(value))
+			return nil, nil
+		})
+	}
+
+	var result struct {
+		Track uint16 `json:"track"`
+	}
+	h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		result.Track = h.app.MidiPlaybackTrack
+		return nil, nil
+	})
+	writeJSON(w, result)
+}
+
+func (h *webHandlers) midiPlaybackOffset(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		value, err := strconv.ParseFloat(string(body), 64)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		_, err = h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			h.app.setMidiPlaybackOffset(time.Duration(value*1e9) * time.Nanosecond)
+			return nil, nil
+		})
+	}
+
+	var result struct {
+		Offset float64 `json:"offset"`
+	}
+	h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		result.Offset = float64(h.app.MidiPlaybackOffset/time.Nanosecond) * 1e-9
+		return nil, nil
+	})
+	writeJSON(w, result)
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {

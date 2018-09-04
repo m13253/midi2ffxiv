@@ -154,28 +154,26 @@ func (app *application) closeMidiOutDevice() {
 }
 
 func (app *application) setMidiOutBank(midiOutBank uint16) error {
-	if app.MidiOutDevice == -1 {
-		return nil
-	}
-	err := winmm.MidiOutShortMsg(app.hMidiOut, 0x0000b0|((uint32(midiOutBank)<<23)&0x7f0000))
-	if err != nil {
-		return err
-	}
-	err = winmm.MidiOutShortMsg(app.hMidiOut, 0x0020b0|((uint32(midiOutBank)<<16)&0x7f0000))
-	if err != nil {
-		return err
+	if app.MidiOutDevice != -1 {
+		err := winmm.MidiOutShortMsg(app.hMidiOut, 0x0000b0|((uint32(midiOutBank)<<23)&0x7f0000))
+		if err != nil {
+			return err
+		}
+		err = winmm.MidiOutShortMsg(app.hMidiOut, 0x0020b0|((uint32(midiOutBank)<<16)&0x7f0000))
+		if err != nil {
+			return err
+		}
 	}
 	app.MidiOutBank = midiOutBank
 	return nil
 }
 
 func (app *application) setMidiOutPatch(midiOutPatch uint8) error {
-	if app.MidiOutDevice == -1 {
-		return nil
-	}
-	err := winmm.MidiOutShortMsg(app.hMidiOut, 0x00c0|((uint32(midiOutPatch)<<8)&0x7f00))
-	if err != nil {
-		return err
+	if app.MidiOutDevice != -1 {
+		err := winmm.MidiOutShortMsg(app.hMidiOut, 0x00c0|((uint32(midiOutPatch)<<8)&0x7f00))
+		if err != nil {
+			return err
+		}
 	}
 	app.MidiOutPatch = midiOutPatch
 	return nil
