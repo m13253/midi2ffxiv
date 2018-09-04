@@ -26,6 +26,8 @@
 package main
 
 import (
+	"io"
+
 	"github.com/algoGuy/EasyMIDI/smf"
 	_ "github.com/algoGuy/EasyMIDI/smfio"
 	cgc "github.com/m13253/cgc-go"
@@ -63,4 +65,9 @@ func (app *application) processPlayback() {
 			return
 		}
 	}
+}
+
+func (app *application) setMidiPlaybackFile(midiPlaybackFile io.ReadSeeker, trackNumber uint16) error {
+	app.MidiPlaybackFile = midiPlaybackFile
+	return nil
 }
