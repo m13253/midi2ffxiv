@@ -437,7 +437,7 @@
 
     function onSchedSetClicked() {
         var timeRegEx = /(\d{1,2})\s*:\s*(\d{1,2})\s*:\s*(\d{1,2})/;
-        var durationRegEx = /(?:(?:(\d{1,2})\s*:\s*)?(\d{1,2})\s*:\s*)?(\d{1,2})/;
+        var durationRegEx = /(?:(?:(\d+)\s*:\s*)?(\d{1,2})\s*:\s*)?(\d{1,2})/;
         var startTimeMatch = document.getElementById("sched-start-time").value.match(timeRegEx);
         if (!startTimeMatch && !schedulerEnabled) {
             reportError("Invalid start time.");
