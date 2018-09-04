@@ -30,10 +30,10 @@
         var el = document.createElement("div");
         el.classList.add("float-message", "error");
         el.appendChild(content);
-        document.getElementById("float-container").appendChild(el);
-        setTimeout(function onHide() {
-            el.style.marginTop = -el.offsetHeight + "px";
-        }, 3196);
+        var container = document.getElementById("float-container");
+        container.insertBefore(el, container.firstElementChild);
+        el.style.marginBottom = -el.offsetHeight + "px";
+        el.classList.add("animated");
         setTimeout(function onHidden() {
             el.remove();
         }, 3400);
@@ -45,10 +45,10 @@
         var el = document.createElement("div");
         el.classList.add("float-message");
         el.appendChild(content);
-        document.getElementById("float-container").appendChild(el);
-        setTimeout(function onHide() {
-            el.style.marginTop = -el.offsetHeight + "px";
-        }, 3196);
+        var container = document.getElementById("float-container");
+        container.insertBefore(el, container.firstElementChild);
+        el.style.marginBottom = -el.offsetHeight + "px";
+        el.classList.add("animated");
         setTimeout(function onHidden() {
             el.remove();
         }, 3400);
@@ -210,17 +210,10 @@
         var synthPatch = document.getElementById("synth-patch");
         var synthTranspose = document.getElementById("synth-transpose");
         var numLoaded = 0;
-        var numFailed = 0;
         var countLoad = function countLoad(event, response) {
             numLoaded++;
             if (numLoaded == 3) {
                 doSynthInstrumentUpdate();
-            }
-        }
-        var countError = function countError(event, error) {
-            numFailed++;
-            if (numFailed == 1) {
-                reportError(error);
             }
         }
         requestHTTP("GET", "/midi-output-bank", null, function onLoad(event, response) {
@@ -229,21 +222,24 @@
             synthBank.value = value;
             suppressEvents = false;
             countLoad();
-        }, countError);
+        }, function onError(event, error) {
+        });
         requestHTTP("GET", "/midi-output-patch", null, function onLoad(event, response) {
             var value = response["patch"];
             suppressEvents = true;
             synthPatch.value = +value + 1;
             suppressEvents = false;
             countLoad();
-        }, countError);
+        }, function onError(event, error) {
+        });
         requestHTTP("GET", "/midi-output-transpose", null, function onLoad(event, response) {
             var value = response["transpose"];
             suppressEvents = true;
             synthTranspose.value = value;
             suppressEvents = false;
             countLoad();
-        }, countError);
+        }, function onError(event, error) {
+        });
     }
 
     function onSynthInstrumentChanged() {
