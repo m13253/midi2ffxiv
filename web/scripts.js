@@ -435,7 +435,7 @@
         }
         var loopEnabled = document.getElementById("sched-loop-enabled").value;
         var loopIntervalMatch = document.getElementById("sched-loop-interval").value.match(durationRegEx);
-        if (!loopIntervalMatch && (!schedulerEnabled || loopEnabled)) {
+        if (!loopIntervalMatch && !schedulerEnabled && loopEnabled) {
             reportError("Invalid loop interval.");
             return;
         }
