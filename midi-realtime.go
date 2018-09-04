@@ -27,11 +27,21 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"./winmm"
 	"golang.org/x/sys/windows"
 )
+
+type midiRealtimeEvent struct {
+	Time    time.Time
+	Message []byte
+}
+
+func (app *application) processMidiRealtime() {
+	_ = app.MidiRealtimeGoro.RunLoop(app.ctx)
+}
 
 func (app *application) listMidiInDevices() []string {
 	midiInDeviceCount := winmm.MidiInGetNumDevs()
@@ -70,8 +80,8 @@ func (app *application) openMidiInDevice(midiInDevice int) error {
 
 	for i := range app.sysexBuffer {
 		app.sysexBuffer[i] = &winmm.MIDIHDR{
-			LpData:         &new([512]byte)[0],
-			DwBufferLength: 512,
+			LpData:         &new([65536]byte)[0],
+			DwBufferLength: 65536,
 		}
 		err = winmm.MidiInPrepareHeader(hMidiIn, app.sysexBuffer[i])
 		if err != nil {
@@ -169,86 +179,100 @@ func (app *application) setMidiOutTranspose(midiOutTranspose int) {
 	app.MidiOutTranspose = midiOutTranspose
 }
 
-func (app *application) onMidiInMessage(midiMsg []byte) {
-	channel := midiMsg[0] & 0xf
+func (app *application) onMidiInEvent(event []byte) {
+	channel := event[0] & 0xf
 	// Ignore percussion channel
 	if channel == 9 {
 		return
 	}
 	// Force channel 1
-	midiMsg[0] = midiMsg[0] & 0xf0
-	switch midiMsg[0] {
+	event[0] = event[0] & 0xf0
+	switch event[0] {
 	// Note off
 	case 0x80:
-		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
+		if app.Keybinding[int(event[1])].VirtualKeyCode == 0 {
 			return
 		}
 	// Note on
 	case 0x90:
-		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
+		if app.Keybinding[int(event[1])].VirtualKeyCode == 0 {
 			return
 		}
-		if midiMsg[2] < app.MinTriggerVelocity {
-			midiMsg[0] = 0x80
+		if event[2] < app.MinTriggerVelocity {
+			event[0] = 0x80
 		}
 	// After touch
 	case 0xa0:
-		if app.Keybinding[int(midiMsg[1])].VirtualKeyCode == 0 {
+		if app.Keybinding[int(event[1])].VirtualKeyCode == 0 {
 			return
 		}
-		if midiMsg[2] == 0 {
-			midiMsg[0] = 0x80
+		if event[2] == 0 {
+			event[0] = 0x80
 		}
 	// Control change
 	case 0xb0:
 		// Block bank select
-		if midiMsg[1] == 0x00 || midiMsg[1] == 0x20 {
+		if event[1] == 0x00 || event[1] == 0x20 {
 			return
 		}
+	// Program change
+	case 0xc0:
+		return
 	// Channel pressure
 	case 0xd0:
-	// Ignore other messages
-	default:
+		event = event[:2]
+	// Pitch bend
+	case 0xe0:
 		return
+	// System Messages
+	case 0xf0:
 	}
-	app.pendingNotes <- &midiMessage{
-		Time: time.Now(),
-		Msg:  midiMsg,
+	app.pendingNotes <- &midiRealtimeEvent{
+		Time:    time.Now(),
+		Message: event,
 	}
 }
 
-func (app *application) sendMidiOutMessage(note *midiMessage) error {
+func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
 	if app.MidiOutDevice == -1 {
 		return nil
 	}
 	var err error
-	switch len(note.Msg) {
+	switch len(event.Message) {
 	case 1:
-		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0]))
+		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0]))
 	case 2:
-		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0])|(uint32(note.Msg[1])<<8))
+		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(event.Message[1])<<8))
 	case 3:
-		if note.Msg[0] == 0x80 || note.Msg[0] == 0x90 || note.Msg[0] == 0xa0 {
-			noteName := int(note.Msg[1]) + app.MidiOutTranspose
+		if event.Message[0] == 0x80 || event.Message[0] == 0x90 || event.Message[0] == 0xa0 {
+			noteName := int(event.Message[1]) + app.MidiOutTranspose
 			if noteName >= 0x00 || noteName <= 0x7f {
-				err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0])|(uint32(noteName)<<8)|(uint32(note.Msg[2])<<16))
+				err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(noteName)<<8)|(uint32(event.Message[2])<<16))
 			}
 		} else {
-			err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0])|(uint32(note.Msg[1])<<8)|(uint32(note.Msg[2])<<16))
+			err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(event.Message[1])<<8)|(uint32(event.Message[2])<<16))
 		}
 	default:
-		buffer := new([512]byte)
+		buffer := make([]byte, len(event.Message))
 		midiHeader := &winmm.MIDIHDR{
-			LpData:         &buffer[0],
-			DwBufferLength: 512,
+			LpData:          &buffer[0],
+			DwBufferLength:  uint32(len(event.Message)),
+			DwBytesRecorded: uint32(len(event.Message)),
 		}
+		copy(buffer, event.Message)
 		err = winmm.MidiOutPrepareHeader(app.hMidiOut, midiHeader)
 		if err != nil {
 			return err
 		}
-		defer winmm.MidiOutUnprepareHeader(app.hMidiOut, midiHeader)
-		copy(buffer[:len(note.Msg)], note.Msg)
-		midiHeader.DwBytesRecorded = uint32(len(note.Msg))
+		defer func() {
+			for {
+				err := winmm.MidiOutUnprepareHeader(app.hMidiOut, midiHeader)
+				if uint32(err.(winmm.MidiOutError)) != winmm.MIDIERR_STILLPLAYING {
+					break
+				}
+				runtime.Gosched()
+			}
+		}()
 		err = winmm.MidiOutLongMsg(app.hMidiOut, midiHeader)
 	}
 	return err

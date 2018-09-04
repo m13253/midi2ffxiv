@@ -38,6 +38,7 @@ type MidiOutError uint32
 const (
 	MMSYSERR_NOERROR     uint32 = 0
 	MMSYSERR_BADDEVICEID uint32 = 2
+	MIDIERR_STILLPLAYING uint32 = 65
 	CALLBACK_NULL        uint32 = 0
 	CALLBACK_WINDOW      uint32 = 0x10000
 	CALLBACK_THREAD      uint32 = 0x20000

@@ -37,10 +37,12 @@ import (
 	"runtime"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 type webHandlers struct {
-	app      *application
+	app *application
+
 	server   *http.Server
 	serveMux *http.ServeMux
 }
@@ -58,6 +60,9 @@ func (app *application) startWebServer() error {
 	h.serveMux.HandleFunc("/midi-output-bank", h.midiOutputBank)
 	h.serveMux.HandleFunc("/midi-output-patch", h.midiOutputPatch)
 	h.serveMux.HandleFunc("/midi-output-transpose", h.midiOutputTranspose)
+	h.serveMux.HandleFunc("/current-time", h.currentTime)
+	h.serveMux.HandleFunc("/ntp-sync-server", h.ntpSyncServer)
+	h.serveMux.HandleFunc("/midi-playback-file", h.midiPlaybackFile)
 
 	originalAddr, err := net.ResolveTCPAddr("tcp", app.WebListenAddr)
 	availableAddr := new(net.TCPAddr)
@@ -81,9 +86,12 @@ func (app *application) startWebServer() error {
 
 	h.server.Addr = availableAddr.String()
 	if len(availableAddr.IP) == 0 || availableAddr.IP.IsUnspecified() {
-		fmt.Printf("Please open control panel at http://localhost:%d\n\n", availableAddr.Port)
+		fmt.Printf("Please open the control panel at http://localhost:%d\n\n", availableAddr.Port)
 	} else {
-		fmt.Printf("Please open control panel at http://%s\n\n", h.server.Addr)
+		fmt.Printf("Please open the control panel at http://%s\n\n", h.server.Addr)
+	}
+	if h.app.WebUsername != "" || h.app.WebPassword != "" {
+		fmt.Printf("Username: %s\nPassword: %s\n\n", h.app.WebUsername, h.app.WebPassword)
 	}
 
 	go h.waitForQuit()
@@ -137,7 +145,7 @@ func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.openMidiInDevice(int(value))
 		})
 		if err != nil {
@@ -151,7 +159,7 @@ func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {
 		Devices  []string `json:"devices"`
 		Selected int      `json:"selected"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Devices = h.app.listMidiInDevices()
 		result.Selected = h.app.MidiInDevice
 		return nil, nil
@@ -173,7 +181,7 @@ func (h *webHandlers) midiOutputDevice(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.openMidiOutDevice(int(value))
 		})
 		if err != nil {
@@ -187,7 +195,7 @@ func (h *webHandlers) midiOutputDevice(w http.ResponseWriter, r *http.Request) {
 		Devices  []string `json:"devices"`
 		Selected int      `json:"selected"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Devices = h.app.listMidiOutDevices()
 		result.Selected = h.app.MidiOutDevice
 		return nil, nil
@@ -209,7 +217,7 @@ func (h *webHandlers) midiOutputBank(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.setMidiOutBank(uint16(value))
 		})
 		if err != nil {
@@ -222,7 +230,7 @@ func (h *webHandlers) midiOutputBank(w http.ResponseWriter, r *http.Request) {
 	var result struct {
 		Bank uint16 `json:"bank"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Bank = h.app.MidiOutBank
 		return nil, nil
 	})
@@ -243,7 +251,7 @@ func (h *webHandlers) midiOutputPatch(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.setMidiOutPatch(uint8(value))
 		})
 		if err != nil {
@@ -256,7 +264,7 @@ func (h *webHandlers) midiOutputPatch(w http.ResponseWriter, r *http.Request) {
 	var result struct {
 		Patch uint8 `json:"patch"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Patch = h.app.MidiOutPatch
 		return nil, nil
 	})
@@ -277,7 +285,7 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			h.app.setMidiOutTranspose(int(value))
 			return nil, nil
 		})
@@ -291,11 +299,72 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 	var result struct {
 		Transpose int `json:"transpose"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Transpose = h.app.MidiOutTranspose
 		return nil, nil
 	})
 	writeJSON(w, result)
+}
+
+func (h *webHandlers) currentTime(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	var result struct {
+		Synced       bool    `json:"synced"`
+		Time         float64 `json:"time"`
+		MaxDeviation float64 `json:"max_deviation"`
+	}
+	synced, offset, maxDeviation := h.app.getNtpOffset()
+	now = now.Add(offset)
+	result.Synced = synced
+	result.Time = float64(now.UTC().Unix()) + float64(now.Nanosecond())*1e-9
+	result.MaxDeviation = float64(maxDeviation/time.Nanosecond) * 1e-9
+	writeJSON(w, result)
+}
+
+func (h *webHandlers) ntpSyncServer(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		ntpServer := string(body)
+
+		_, err = h.app.NtpGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			return nil, h.app.syncTime(ntpServer)
+		})
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 503)
+			return
+		}
+		h.app.NtpSyncServer = ntpServer
+	}
+
+	var result struct {
+		Server string `json:"server"`
+	}
+	result.Server = h.app.NtpSyncServer
+	writeJSON(w, result)
+}
+
+func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		_, err := h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			return nil, h.app.setMidiPlaybackFile(r.Body)
+		})
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 503)
+			return
+		}
+
+		writeJSON(w, struct{}{})
+		return
+	}
+
+	http.Error(w, "Method Not Allowed", 405)
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {
@@ -306,5 +375,6 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(stream)
 }

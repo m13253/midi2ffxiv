@@ -28,15 +28,56 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"./user32"
+	cgc "github.com/m13253/cgc-go"
 )
 
-func (app *application) produceKeystroke(note *midiMessage) {
+type keystroke struct {
+	Pressed     bool
+	MidiNote    uint8
+	LastChange  time.Time
+	LastPress   time.Time
+	LastRelease time.Time
+}
+
+type keystrokeStatus struct {
+	pressedKeys         [256]keystroke
+	pressedKeysCount    int
+	ctrl                keystroke
+	alt                 keystroke
+	shift               keystroke
+	lastNoteOn          *midiRealtimeEvent
+	clearModifiersTimer *time.Timer
+}
+
+func (app *application) processKeystrokes() {
+	app.keyStatus = &keystrokeStatus{
+		clearModifiersTimer: time.NewTimer(app.IdleDuration),
+	}
+	for {
+		select {
+		case r, ok := <-app.KeystrokeGoro:
+			if !ok {
+				return
+			}
+			_ = cgc.RunOneRequest(app.ctx, r)
+		case <-app.keyStatus.clearModifiersTimer.C:
+			app.clearModifiers()
+		case <-app.ctx.Done():
+			return
+		}
+	}
+}
+
+func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
-	if note.Msg[0] == 0x90 {
-		keybind := app.Keybinding[int(note.Msg[1])]
-		if app.pressedKeys[keybind.VirtualKeyCode] {
+	now := time.Now()
+	if event.Message[0] == 0x90 {
+		app.keyStatus.clearModifiersTimer.Stop()
+		keybind := app.Keybinding[int(event.Message[1])]
+		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 				Type: user32.INPUT_KEYBOARD,
 				Ki: user32.KEYBDINPUT{
@@ -47,9 +88,12 @@ func (app *application) produceKeystroke(note *midiMessage) {
 					DwExtraInfo: 0,
 				},
 			})
-			app.pressedKeysCount--
+			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = false
+			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastChange = now
+			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease = now
+			app.keyStatus.pressedKeysCount--
 		}
-		if app.isCtrlDown != keybind.Ctrl {
+		if app.keyStatus.ctrl.Pressed != keybind.Ctrl {
 			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
 			if keybind.Ctrl {
 				dwFlags = user32.KEYEVENTF_SCANCODE
@@ -64,9 +108,17 @@ func (app *application) produceKeystroke(note *midiMessage) {
 					DwExtraInfo: 0,
 				},
 			})
-			app.isCtrlDown = keybind.Ctrl
+			if keybind.Ctrl {
+				app.keyStatus.ctrl.Pressed = true
+				app.keyStatus.ctrl.LastChange = now
+				app.keyStatus.ctrl.LastPress = now
+			} else {
+				app.keyStatus.ctrl.Pressed = false
+				app.keyStatus.ctrl.LastChange = now
+				app.keyStatus.ctrl.LastRelease = now
+			}
 		}
-		if app.isAltDown != keybind.Alt {
+		if app.keyStatus.alt.Pressed != keybind.Alt {
 			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
 			if keybind.Alt {
 				dwFlags = user32.KEYEVENTF_SCANCODE
@@ -81,9 +133,17 @@ func (app *application) produceKeystroke(note *midiMessage) {
 					DwExtraInfo: 0,
 				},
 			})
-			app.isAltDown = keybind.Alt
+			if keybind.Alt {
+				app.keyStatus.alt.Pressed = true
+				app.keyStatus.alt.LastChange = now
+				app.keyStatus.alt.LastPress = now
+			} else {
+				app.keyStatus.alt.Pressed = false
+				app.keyStatus.alt.LastChange = now
+				app.keyStatus.alt.LastRelease = now
+			}
 		}
-		if app.isShiftDown != keybind.Shift {
+		if app.keyStatus.shift.Pressed != keybind.Shift {
 			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
 			if keybind.Shift {
 				dwFlags = user32.KEYEVENTF_SCANCODE
@@ -98,8 +158,34 @@ func (app *application) produceKeystroke(note *midiMessage) {
 					DwExtraInfo: 0,
 				},
 			})
-			app.isShiftDown = keybind.Shift
+			if keybind.Shift {
+				app.keyStatus.shift.Pressed = true
+				app.keyStatus.shift.LastChange = now
+				app.keyStatus.shift.LastPress = now
+			} else {
+				app.keyStatus.shift.Pressed = false
+				app.keyStatus.shift.LastChange = now
+				app.keyStatus.shift.LastRelease = now
+			}
 		}
+		if now.Sub(app.keyStatus.ctrl.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.alt.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.shift.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease) < app.ModifierCooldown {
+			for i := range pInputs {
+				_, err := user32.SendInput(pInputs[i : i+1])
+				if err != nil {
+					fmt.Println("Error: ", err)
+				}
+			}
+			app.printPressedKeys()
+			pInputs = pInputs[:0]
+			time.Sleep(app.ModifierCooldown)
+			now = time.Now()
+		}
+		if app.keyStatus.lastNoteOn != nil && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNoteOn.Message[1]) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteOn.Time) < app.SkillCooldown {
+			time.Sleep(app.keyStatus.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
+			now = time.Now()
+		}
+		event.Time = now
+		app.keyStatus.lastNoteOn = event
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,
 			Ki: user32.KEYBDINPUT{
@@ -110,12 +196,13 @@ func (app *application) produceKeystroke(note *midiMessage) {
 				DwExtraInfo: 0,
 			},
 		})
-		app.pressedKeys[keybind.VirtualKeyCode] = true
-		app.pressedKeysCount++
-		app.clearModifiersTimer.Stop()
-	} else if note.Msg[0] == 0x80 {
-		keybind := app.Keybinding[int(note.Msg[1])]
-		if app.pressedKeys[keybind.VirtualKeyCode] {
+		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = true
+		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote = event.Message[1]
+		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastPress = now
+		app.keyStatus.pressedKeysCount++
+	} else if event.Message[0] == 0x80 {
+		keybind := app.Keybinding[int(event.Message[1])]
+		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == event.Message[1] {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 				Type: user32.INPUT_KEYBOARD,
 				Ki: user32.KEYBDINPUT{
@@ -126,11 +213,12 @@ func (app *application) produceKeystroke(note *midiMessage) {
 					DwExtraInfo: 0,
 				},
 			})
-			app.pressedKeys[keybind.VirtualKeyCode] = false
-			app.pressedKeysCount--
+			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = false
+			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease = now
+			app.keyStatus.pressedKeysCount--
 		}
-		if app.pressedKeysCount == 0 {
-			app.clearModifiersTimer.Reset(app.IdleDuration)
+		if app.keyStatus.pressedKeysCount == 0 {
+			app.keyStatus.clearModifiersTimer.Reset(app.IdleDuration)
 		}
 	}
 	if len(pInputs) != 0 {
@@ -146,7 +234,8 @@ func (app *application) produceKeystroke(note *midiMessage) {
 
 func (app *application) clearModifiers() {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
-	if app.isCtrlDown {
+	now := time.Now()
+	if app.keyStatus.ctrl.Pressed {
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,
 			Ki: user32.KEYBDINPUT{
@@ -157,9 +246,11 @@ func (app *application) clearModifiers() {
 				DwExtraInfo: 0,
 			},
 		})
-		app.isCtrlDown = false
+		app.keyStatus.ctrl.Pressed = false
+		app.keyStatus.ctrl.LastChange = now
+		app.keyStatus.ctrl.LastRelease = now
 	}
-	if app.isAltDown {
+	if app.keyStatus.alt.Pressed {
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,
 			Ki: user32.KEYBDINPUT{
@@ -170,9 +261,11 @@ func (app *application) clearModifiers() {
 				DwExtraInfo: 0,
 			},
 		})
-		app.isAltDown = false
+		app.keyStatus.alt.Pressed = false
+		app.keyStatus.alt.LastChange = now
+		app.keyStatus.alt.LastRelease = now
 	}
-	if app.isShiftDown {
+	if app.keyStatus.shift.Pressed {
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,
 			Ki: user32.KEYBDINPUT{
@@ -183,7 +276,9 @@ func (app *application) clearModifiers() {
 				DwExtraInfo: 0,
 			},
 		})
-		app.isShiftDown = false
+		app.keyStatus.shift.Pressed = false
+		app.keyStatus.shift.LastChange = now
+		app.keyStatus.shift.LastRelease = now
 	}
 	if len(pInputs) != 0 {
 		for i := range pInputs {
@@ -199,24 +294,24 @@ func (app *application) clearModifiers() {
 func (app *application) printPressedKeys() {
 	pressedKeysCount := 0
 	line := "["
-	if app.isCtrlDown {
+	if app.keyStatus.ctrl.Pressed {
 		line += " Ctrl"
 	}
-	if app.isAltDown {
+	if app.keyStatus.alt.Pressed {
 		line += " Alt"
 	}
-	if app.isShiftDown {
+	if app.keyStatus.shift.Pressed {
 		line += " Shift"
 	}
-	for i, v := range app.pressedKeys {
-		if v {
+	for i, v := range app.keyStatus.pressedKeys {
+		if v.Pressed {
 			line += fmt.Sprintf(" %q", rune(i))
 			pressedKeysCount++
 		}
 	}
 	line += " ]"
 	log.Println(line)
-	if pressedKeysCount != app.pressedKeysCount {
-		panic(fmt.Sprintf("pressedKeysCount (%d) != app.pressedKeysCount (%d)", pressedKeysCount, app.pressedKeysCount))
+	if pressedKeysCount != app.keyStatus.pressedKeysCount {
+		panic(fmt.Sprintf("pressedKeysCount (%d) != keyStatus.pressedKeysCount (%d)", pressedKeysCount, app.keyStatus.pressedKeysCount))
 	}
 }
