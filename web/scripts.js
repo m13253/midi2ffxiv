@@ -210,13 +210,13 @@
         var synthTranspose = document.getElementById("synth-transpose");
         var numLoaded = 0;
         var numFailed = 0;
-        countLoad = function countLoad(event, response) {
+        var countLoad = function countLoad(event, response) {
             numLoaded++;
             if (numLoaded == 3) {
                 doSynthInstrumentUpdate();
             }
         }
-        countError = function countError(event, error) {
+        var countError = function countError(event, error) {
             numFailed++;
             if (numFailed == 1) {
                 reportError(error);
@@ -227,18 +227,21 @@
             suppressEvents = true;
             synthBank.value = value;
             suppressEvents = false;
+            countLoad();
         }, countError);
         requestHTTP("GET", "/midi-output-patch", null, function onLoad(event, response) {
             var value = response["patch"];
             suppressEvents = true;
             synthPatch.value = +value + 1;
             suppressEvents = false;
+            countLoad();
         }, countError);
         requestHTTP("GET", "/midi-output-transpose", null, function onLoad(event, response) {
             var value = response["transpose"];
             suppressEvents = true;
             synthTranspose.value = value;
             suppressEvents = false;
+            countLoad();
         }, countError);
     }
 
@@ -277,8 +280,64 @@
         requestHTTP("PUT", "/midi-output-transpose", synthTranspose.value, countLoad, countError);
     }
 
+    var serverTime = {
+        "synced": false,
+        "offset": 0,
+        "max_deviation": 0,
+    };
+
+    function doGetServerTime() {
+        var before = Date.now();
+        requestHTTP("GET", "/current-time", null, function onLoad(event, response) {
+            var after = Date.now();
+            var rtt = (after - before) * 0.001;
+            response["time"] += rtt / 2;
+            response["offset"] = response["time"] - after * 0.001;
+            response["max_deviation"] += rtt;
+            serverTime = response;
+        }, function onError(event, error) {
+            serverTime["synced"] = false;
+        });
+    }
+
+    function updateServerTime() {
+        var el = document.getElementById("current-time");
+        try {
+            var now = new Date(Date.now() + serverTime["offset"] * 1000);
+            var hours = now.getHours();
+            var minutes = now.getMinutes();
+            var seconds = now.getSeconds();
+            var milliseconds = now.getMilliseconds();
+            hours = hours < 10 ? "0" + hours : "" + hours;
+            minutes = minutes < 10 ? "0" + minutes : "" + minutes;
+            seconds = seconds < 10 ? "0" + seconds : "" + seconds;
+            milliseconds = milliseconds < 100 ? milliseconds < 10 ? "00" + milliseconds : "0" + milliseconds : "" + milliseconds;
+            var maxDeviation = serverTime["synced"] ? "\xb1" + Math.ceil(serverTime["max_deviation"] * 1000) + " ms" : "unsynced"
+            el.value = hours + " : " + minutes + " : " + seconds + "." + milliseconds + " (" + maxDeviation + ")";
+        } catch (e) {
+            el.value = "-- : -- : --.--- (unsynced)";
+        }
+        requestAnimationFrame(updateServerTime);
+    }
+
+    function getServerTime() {
+        doGetServerTime();
+        setTimeout(getServerTime, 5000);
+    }
+
     function onNTPSyncClicked() {
-        reportError("Feature not implemented yet");
+        var button = this;
+        var server = document.getElementById("ntp-server").value || "0.beevik-ntp.pool.ntp.org";
+        button.disabled = true;
+        setTimeout(function onTimeout() {
+            button.disabled = false;
+        }, 5000);
+        requestHTTP("PUT", "/ntp-sync-server", server, function onLoad(event, response) {
+            doGetServerTime();
+            reportMessage("Time synced to " + server);
+        }, function onError(event, error) {
+            reportError(error);
+        });
     }
 
     function onCurrentTimeCopyClicked() {
@@ -326,5 +385,7 @@
     doMidiInputRefresh(true);
     doMidiOutputRefresh(true);
     doSynthInstrumentRefresh();
+    getServerTime();
+    requestAnimationFrame(updateServerTime);
 
 })();

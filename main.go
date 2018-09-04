@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -61,18 +62,25 @@ type application struct {
 	MidiPlaybackScheduleEnabled bool
 	MidiPlaybackLoop            time.Duration
 	MidiPlaybackLoopEnabled     bool
-	NtpOffset                   time.Duration
+	NtpSyncServer               string
+	NtpLastSync                 time.Time
+	NtpClockOffset              time.Duration
 	NtpMaxDeviation             time.Duration
+
+	ctx context.Context
 
 	hWnd        uintptr
 	hMidiIn     uintptr
 	hMidiOut    uintptr
 	sysexBuffer [2]*winmm.MIDIHDR
 
-	ctx            context.Context
+	pendingNotes chan *midiRealtimeEvent
+
+	keyStatus *keystrokeStatus
+
 	midiFileBuffer *midiFileBuffer
-	pendingNotes   chan *midiRealtimeEvent
-	keyStatus      *keystrokeStatus
+
+	ntpMutex *sync.RWMutex
 }
 
 func main() {
@@ -92,6 +100,7 @@ func (app *application) run(args []string) int {
 	app.preset = defaultPreset
 
 	app.ctx, app.Quit = context.WithCancel(context.Background())
+
 	app.KeystrokeGoro = cgc.NewBuffered(1)
 	app.MidiRealtimeGoro = cgc.NewBuffered(1)
 	app.NtpGoro = cgc.NewBuffered(1)
@@ -104,6 +113,8 @@ func (app *application) run(args []string) int {
 	app.MidiOutTranspose = 0
 
 	app.pendingNotes = make(chan *midiRealtimeEvent, 256)
+
+	app.ntpMutex = new(sync.RWMutex)
 
 	err := app.startWebServer()
 	if err != nil {

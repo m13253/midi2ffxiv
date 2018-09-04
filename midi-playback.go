@@ -36,10 +36,12 @@ import (
 )
 
 type midiFileBuffer struct {
-	MidiTracks       []midiFileTrack
-	TempoTable       []tempoEntry
-	TicksPerBeat     uint16
-	playbackProgress int
+	MidiTracks     []midiFileTrack
+	TempoTable     []tempoEntry
+	TicksPerBeat   uint16
+	nextEventIndex int
+	nextEventTimer *time.Timer
+	loopTimer      *time.Timer
 }
 
 type midiFileTrack []*midiFileEvent
@@ -61,14 +63,25 @@ type tempoEntry struct {
 }
 
 func (app *application) processMidiPlayback() {
-	app.midiFileBuffer = &midiFileBuffer{}
+	app.midiFileBuffer = &midiFileBuffer{
+		nextEventTimer: time.NewTimer(0),
+		loopTimer:      time.NewTimer(0),
+	}
 	for {
+		now := time.Now()
 		select {
 		case r, ok := <-app.MidiPlaybackGoro:
 			if !ok {
 				return
 			}
 			_ = cgc.RunOneRequest(app.ctx, r)
+		case <-app.midiFileBuffer.nextEventTimer.C:
+			if app.MidiPlaybackScheduleEnabled && now.After(app.MidiPlaybackSchedule) {
+			}
+		case <-app.midiFileBuffer.loopTimer.C:
+			if app.MidiPlaybackScheduleEnabled && now.After(app.MidiPlaybackSchedule) && app.MidiPlaybackLoopEnabled {
+				app.resetMidiPlayback()
+			}
 		case <-app.ctx.Done():
 			return
 		}
@@ -147,6 +160,11 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 	app.midiFileBuffer.TempoTable = tempoTable
 	app.midiFileBuffer.TicksPerBeat = division.GetTicks()
 	return nil
+}
+
+func (app *application) resetMidiPlayback() {
+	app.midiFileBuffer.nextEventIndex = 0
+	app.midiFileBuffer.nextEventTimer.Reset(0)
 }
 
 func (m midiFileAbsoluteTime) Duration() time.Duration {

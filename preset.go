@@ -41,6 +41,8 @@ type preset struct {
 	MaxNoteDelay       time.Duration
 	SkillCooldown      time.Duration
 	ModifierCooldown   time.Duration
+	NtpSyncTimeout     time.Duration
+	NtpCooldown        time.Duration
 	MinTriggerVelocity uint8
 	Keybinding         [128]keybindingPreset
 
@@ -54,6 +56,8 @@ var defaultPreset = preset{
 	MaxNoteDelay:       300 * time.Millisecond,
 	SkillCooldown:      140 * time.Millisecond,
 	ModifierCooldown:   1*time.Second/30 + 1,
+	NtpSyncTimeout:     5 * time.Second,
+	NtpCooldown:        10 * time.Second,
 	MinTriggerVelocity: 16,
 	Keybinding: [128]keybindingPreset{
 		0x30: {'Q', true, false, false},

@@ -37,6 +37,7 @@ import (
 	"runtime"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 type webHandlers struct {
@@ -59,6 +60,8 @@ func (app *application) startWebServer() error {
 	h.serveMux.HandleFunc("/midi-output-bank", h.midiOutputBank)
 	h.serveMux.HandleFunc("/midi-output-patch", h.midiOutputPatch)
 	h.serveMux.HandleFunc("/midi-output-transpose", h.midiOutputTranspose)
+	h.serveMux.HandleFunc("/current-time", h.currentTime)
+	h.serveMux.HandleFunc("/ntp-sync-server", h.ntpSyncServer)
 	h.serveMux.HandleFunc("/midi-playback-file", h.midiPlaybackFile)
 
 	originalAddr, err := net.ResolveTCPAddr("tcp", app.WebListenAddr)
@@ -303,6 +306,49 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 	writeJSON(w, result)
 }
 
+func (h *webHandlers) currentTime(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	var result struct {
+		Synced       bool    `json:"synced"`
+		Time         float64 `json:"time"`
+		MaxDeviation float64 `json:"max_deviation"`
+	}
+	synced, offset, maxDeviation := h.app.getNtpOffset()
+	now = now.Add(offset)
+	result.Synced = synced
+	result.Time = float64(now.UTC().Unix()) + float64(now.Nanosecond())*1e-9
+	result.MaxDeviation = float64(maxDeviation/time.Nanosecond) * 1e-9
+	writeJSON(w, result)
+}
+
+func (h *webHandlers) ntpSyncServer(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "PUT" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		ntpServer := string(body)
+
+		_, err = h.app.NtpGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			return nil, h.app.syncTime(ntpServer)
+		})
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 503)
+			return
+		}
+		h.app.NtpSyncServer = ntpServer
+	}
+
+	var result struct {
+		Server string `json:"server"`
+	}
+	result.Server = h.app.NtpSyncServer
+	writeJSON(w, result)
+}
+
 func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		_, err := h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
@@ -311,6 +357,7 @@ func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err)
 			http.Error(w, err.Error(), 503)
+			return
 		}
 
 		writeJSON(w, struct{}{})
@@ -328,5 +375,6 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(stream)
 }
