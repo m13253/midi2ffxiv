@@ -57,7 +57,7 @@ type application struct {
 	MidiOutPatch                uint8
 	MidiOutTranspose            int
 	MidiPlaybackTrack           uint16
-	MidiPlaybackOffset          float64
+	MidiPlaybackOffset          time.Duration
 	MidiPlaybackSchedule        time.Time
 	MidiPlaybackScheduleEnabled bool
 	MidiPlaybackLoop            time.Duration

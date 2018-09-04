@@ -393,7 +393,6 @@
         if (suppressEvents) { return; }
         var value = this.value;
         requestHTTP("PUT", "/midi-playback-offset", value * 0.001, function onLoad(event, response) {
-            reportMessage("MIDI offset changed to " + value + " ms.");
         }, function onError(event, error) {
             reportError(error);
         })

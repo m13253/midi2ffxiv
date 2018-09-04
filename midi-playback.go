@@ -164,6 +164,14 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 	return nil
 }
 
+func (app *application) setMidiPlaybackTrack(trackNumber uint16) {
+	app.MidiPlaybackTrack = trackNumber
+}
+
+func (app *application) setMidiPlaybackOffset(offset time.Duration) {
+	app.MidiPlaybackOffset = offset
+}
+
 func (app *application) resetMidiPlayback() {
 	app.midiFileBuffer.nextEventIndex = 0
 	app.midiFileBuffer.nextEventTimer.Reset(0)
