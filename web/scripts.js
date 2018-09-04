@@ -212,7 +212,7 @@
         var numLoaded = 0;
         var countLoad = function countLoad(event, response) {
             numLoaded++;
-            if (numLoaded == 3) {
+            if (numLoaded === 3) {
                 doSynthInstrumentUpdate();
             }
         }
@@ -262,19 +262,29 @@
         var numFailed = 0;
         var countLoad = function countLoad(event, response) {
             numLoaded++;
-            if (numLoaded == 3) {
+            if (numLoaded === 3) {
                 reportMessage("MIDI instrument changed to " + text + ".");
             }
         }
         var countError = function countError(event, error) {
             numFailed++;
-            if (numFailed == 1) {
+            if (numFailed === 1) {
                 reportError(error);
             }
         }
         requestHTTP("PUT", "/midi-output-bank", synthBank.value, countLoad, countError);
         requestHTTP("PUT", "/midi-output-patch", +synthPatch.value - 1, countLoad, countError);
         requestHTTP("PUT", "/midi-output-transpose", synthTranspose.value, countLoad, countError);
+    }
+
+    function doNTPServerUpdate() {
+        requestHTTP("GET", "/ntp-sync-server", null, function onLoad(event, response) {
+            var server = response["server"];
+            if (server !== "0.beevik-ntp.pool.ntp.org") {
+                document.getElementById("ntp-server").value = server;
+            }
+        }, function onError(event, error) {
+        });
     }
 
     var serverTime = {
@@ -494,6 +504,7 @@
     doMidiInputRefresh(true);
     doMidiOutputRefresh(true);
     doSynthInstrumentRefresh();
+    doNTPServerUpdate();
     doMIDITrackNumberRefresh();
     doMIDIOffsetMsRefresh();
     doSchedulerRefresh();
