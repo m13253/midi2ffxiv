@@ -210,17 +210,10 @@
         var synthPatch = document.getElementById("synth-patch");
         var synthTranspose = document.getElementById("synth-transpose");
         var numLoaded = 0;
-        var numFailed = 0;
         var countLoad = function countLoad(event, response) {
             numLoaded++;
             if (numLoaded == 3) {
                 doSynthInstrumentUpdate();
-            }
-        }
-        var countError = function countError(event, error) {
-            numFailed++;
-            if (numFailed == 1) {
-                reportError(error);
             }
         }
         requestHTTP("GET", "/midi-output-bank", null, function onLoad(event, response) {
@@ -229,21 +222,24 @@
             synthBank.value = value;
             suppressEvents = false;
             countLoad();
-        }, countError);
+        }, function onError(event, error) {
+        });
         requestHTTP("GET", "/midi-output-patch", null, function onLoad(event, response) {
             var value = response["patch"];
             suppressEvents = true;
             synthPatch.value = +value + 1;
             suppressEvents = false;
             countLoad();
-        }, countError);
+        }, function onError(event, error) {
+        });
         requestHTTP("GET", "/midi-output-transpose", null, function onLoad(event, response) {
             var value = response["transpose"];
             suppressEvents = true;
             synthTranspose.value = value;
             suppressEvents = false;
             countLoad();
-        }, countError);
+        }, function onError(event, error) {
+        });
     }
 
     function onSynthInstrumentChanged() {
