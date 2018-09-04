@@ -328,7 +328,7 @@
         button.disabled = true;
         setTimeout(function onTimeout() {
             button.disabled = false;
-        }, 5000);
+        }, 1000);
         requestHTTP("PUT", "/ntp-sync-server", server, function onLoad(event, response) {
             doUpdateServerTime();
             reportMessage("Time synced to " + server);
@@ -394,8 +394,86 @@
         })
     }
 
+    var schedulerEnabled = false;
+
+    function doSchedulerRefresh() {
+        requestHTTP("GET", "/scheduler", null, function onLoad(event, response) {
+            schedulerEnabled = response["enabled"];
+            if (schedulerEnabled) {
+                document.getElementById("sched-set").classList.add("pure-button-primary");
+            } else {
+                document.getElementById("sched-set").classList.remove("pure-button-primary");
+            }
+            var startTime = new Date(response["start_time"] * 1000);
+            var loopEnabled = response["loop_enabled"];
+            var loopInterval = response["loop_interval"];
+            var startTimeHours = startTime.getHours();
+            var startTimeMinutes = startTime.getMinutes();
+            var startTimeSeconds = startTime.getSeconds();
+            startTimeHours = startTimeHours < 10 ? "0" + startTimeHours : "" + startTimeHours;
+            startTimeMinutes = startTimeMinutes < 10 ? "0" + startTimeMinutes : "" + startTimeMinutes;
+            startTimeSeconds = startTimeSeconds < 10 ? "0" + startTimeSeconds : "" + startTimeSeconds;
+            var loopIntervalHours = Math.trunc(loopInterval / 3600);
+            var loopIntervalMinutes = Math.trunc((loopInterval % 3600) / 60);
+            var loopIntervalSeconds = Math.trunc(loopInterval % 60);
+            loopIntervalMinutes = loopIntervalMinutes < 10 ? "0" + loopIntervalMinutes : "" + loopIntervalMinutes;
+            loopIntervalSeconds = loopIntervalSeconds < 10 ? "0" + loopIntervalSeconds : "" + loopIntervalSeconds;
+            document.getElementById("sched-start-time").value = startTimeHours + " : " + startTimeMinutes + " : " + startTimeSeconds;
+            document.getElementById("sched-loop-enabled").value = loopEnabled;
+            document.getElementById("sched-loop-interval").value = loopIntervalHours + " : " + loopIntervalMinutes + " : " + loopIntervalSeconds;
+        }, function onError(event, error) {
+        });
+    }
+
     function onSchedSetClicked() {
-        reportError("Feature not implemented yet");
+        var timeRegEx = /(\d{1,2})\s*:\s*(\d{1,2})\s*:\s*(\d{1,2})/;
+        var durationRegEx = /(?:(?:(\d{1,2})\s*:\s*)?(\d{1,2})\s*:\s*)?(\d{1,2})/;
+        var startTimeMatch = document.getElementById("sched-start-time").value.match(timeRegEx);
+        if (!startTimeMatch && !schedulerEnabled) {
+            reportError("Invalid start time.");
+            return;
+        }
+        var loopEnabled = document.getElementById("sched-loop-enabled").value;
+        var loopIntervalMatch = document.getElementById("sched-loop-interval").value.match(durationRegEx);
+        if (!loopIntervalMatch && (!schedulerEnabled || loopEnabled)) {
+            reportError("Invalid loop interval.");
+            return;
+        }
+        var now = new Date();
+        var startTime = new Date(0);
+        if (startTimeMatch) {
+            startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), +startTimeMatch[1], +startTimeMatch[2], +startTimeMatch[3], 0);
+        }
+        var loopInterval = 0;
+        if (loopIntervalMatch) {
+            var loopIntervalHours = +(loopIntervalMatch[1] || 0)
+            var loopIntervalMinutes = +(loopIntervalMatch[2] || 0)
+            var loopintervalSeconds = +loopIntervalMatch[3];
+            loopInterval = loopIntervalHours * 3600 + loopIntervalMinutes * 60 + loopintervalSeconds;
+        }
+
+        var button = this;
+        button.disabled = true;
+        setTimeout(function onTimeout() {
+            button.disabled = false;
+        }, 1000);
+
+        var body = {
+            "enabled": !schedulerEnabled,
+            "start_time": startTime.getTime() * 0.001,
+            "loop_enabled": loopEnabled,
+            "loop_interval": loopInterval,
+        };
+        requestHTTP("PUT", "/scheduler", JSON.stringify(body), function onLoad(event, response) {
+            schedulerEnabled = response["enabled"];
+            if (schedulerEnabled) {
+                this.classList.add("pure-button-primary");
+            } else {
+                this.classList.remove("pure-button-primary");
+            }
+        }, function onError(event, error) {
+            reportError(error);
+        });
     }
 
     document.getElementById("midi-input-refresh").addEventListener("click", onMidiInputRefreshClicked);
@@ -418,6 +496,7 @@
     doSynthInstrumentRefresh();
     doMIDITrackNumberRefresh();
     doMIDIOffsetMsRefresh();
+    doSchedulerRefresh();
     updateServerTime();
     requestAnimationFrame(displayServerTime);
 
