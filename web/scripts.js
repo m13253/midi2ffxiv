@@ -30,10 +30,10 @@
         var el = document.createElement("div");
         el.classList.add("float-message", "error");
         el.appendChild(content);
-        document.getElementById("float-container").appendChild(el);
-        setTimeout(function onHide() {
-            el.style.marginTop = -el.offsetHeight + "px";
-        }, 3196);
+        var container = document.getElementById("float-container");
+        container.insertBefore(el, container.firstElementChild);
+        el.style.marginBottom = -el.offsetHeight + "px";
+        el.classList.add("animated");
         setTimeout(function onHidden() {
             el.remove();
         }, 3400);
@@ -45,10 +45,10 @@
         var el = document.createElement("div");
         el.classList.add("float-message");
         el.appendChild(content);
-        document.getElementById("float-container").appendChild(el);
-        setTimeout(function onHide() {
-            el.style.marginTop = -el.offsetHeight + "px";
-        }, 3196);
+        var container = document.getElementById("float-container");
+        container.insertBefore(el, container.firstElementChild);
+        el.style.marginBottom = -el.offsetHeight + "px";
+        el.classList.add("animated");
         setTimeout(function onHidden() {
             el.remove();
         }, 3400);
