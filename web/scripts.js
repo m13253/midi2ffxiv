@@ -261,15 +261,15 @@
             suppressEvents = false;
         }
 
-        numLoaded = 0;
-        numFailed = 0;
-        countLoad = function countLoad(event, response) {
+        var numLoaded = 0;
+        var numFailed = 0;
+        var countLoad = function countLoad(event, response) {
             numLoaded++;
             if (numLoaded == 3) {
                 reportMessage("MIDI instrument changed to " + text + ".");
             }
         }
-        countError = function countError(event, error) {
+        var countError = function countError(event, error) {
             numFailed++;
             if (numFailed == 1) {
                 reportError(error);
