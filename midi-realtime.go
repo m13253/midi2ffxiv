@@ -27,6 +27,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"./winmm"
@@ -70,8 +71,8 @@ func (app *application) openMidiInDevice(midiInDevice int) error {
 
 	for i := range app.sysexBuffer {
 		app.sysexBuffer[i] = &winmm.MIDIHDR{
-			LpData:         &new([512]byte)[0],
-			DwBufferLength: 512,
+			LpData:         &new([65536]byte)[0],
+			DwBufferLength: 65536,
 		}
 		err = winmm.MidiInPrepareHeader(hMidiIn, app.sysexBuffer[i])
 		if err != nil {
@@ -205,11 +206,17 @@ func (app *application) onMidiInMessage(midiMsg []byte) {
 		if midiMsg[1] == 0x00 || midiMsg[1] == 0x20 {
 			return
 		}
+	// Program change
+	case 0xc0:
+		midiMsg = midiMsg[:2]
 	// Channel pressure
 	case 0xd0:
-	// Ignore other messages
-	default:
+		midiMsg = midiMsg[:2]
+	// Pitch bend
+	case 0xe0:
 		return
+	// System Messages
+	case 0xf0:
 	}
 	app.pendingNotes <- &midiMessage{
 		Time: time.Now(),
@@ -237,18 +244,26 @@ func (app *application) sendMidiOutMessage(note *midiMessage) error {
 			err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(note.Msg[0])|(uint32(note.Msg[1])<<8)|(uint32(note.Msg[2])<<16))
 		}
 	default:
-		buffer := new([512]byte)
+		buffer := make([]byte, len(note.Msg))
 		midiHeader := &winmm.MIDIHDR{
-			LpData:         &buffer[0],
-			DwBufferLength: 512,
+			LpData:          &buffer[0],
+			DwBufferLength:  uint32(len(note.Msg)),
+			DwBytesRecorded: uint32(len(note.Msg)),
 		}
+		copy(buffer, note.Msg)
 		err = winmm.MidiOutPrepareHeader(app.hMidiOut, midiHeader)
 		if err != nil {
 			return err
 		}
-		defer winmm.MidiOutUnprepareHeader(app.hMidiOut, midiHeader)
-		copy(buffer[:len(note.Msg)], note.Msg)
-		midiHeader.DwBytesRecorded = uint32(len(note.Msg))
+		defer func() {
+			for {
+				err := winmm.MidiOutUnprepareHeader(app.hMidiOut, midiHeader)
+				if uint32(err.(winmm.MidiOutError)) != winmm.MIDIERR_STILLPLAYING {
+					break
+				}
+				runtime.Gosched()
+			}
+		}()
 		err = winmm.MidiOutLongMsg(app.hMidiOut, midiHeader)
 	}
 	return err

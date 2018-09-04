@@ -40,7 +40,8 @@ import (
 )
 
 type webHandlers struct {
-	app      *application
+	app *application
+
 	server   *http.Server
 	serveMux *http.ServeMux
 }
@@ -81,9 +82,12 @@ func (app *application) startWebServer() error {
 
 	h.server.Addr = availableAddr.String()
 	if len(availableAddr.IP) == 0 || availableAddr.IP.IsUnspecified() {
-		fmt.Printf("Please open control panel at http://localhost:%d\n\n", availableAddr.Port)
+		fmt.Printf("Please open the control panel at http://localhost:%d\n\n", availableAddr.Port)
 	} else {
-		fmt.Printf("Please open control panel at http://%s\n\n", h.server.Addr)
+		fmt.Printf("Please open the control panel at http://%s\n\n", h.server.Addr)
+	}
+	if h.app.WebUsername != "" || h.app.WebPassword != "" {
+		fmt.Printf("Username: %s\nPassword: %s\n\n", h.app.WebUsername, h.app.WebPassword)
 	}
 
 	go h.waitForQuit()

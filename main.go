@@ -28,9 +28,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
-	"sync"
 	"syscall"
 	"time"
 	"unsafe"
@@ -47,29 +47,32 @@ type application struct {
 
 	Quit          context.CancelFunc
 	MidiGoro      cgc.Executor
+	PlaybackGoro  cgc.Executor
 	KeystrokeGoro cgc.Executor
 
-	MidiInDevice     int
-	MidiOutDevice    int
-	MidiOutBank      uint16
-	MidiOutPatch     uint8
-	MidiOutTranspose int
+	MidiInDevice         int
+	MidiOutDevice        int
+	MidiOutBank          uint16
+	MidiOutPatch         uint8
+	MidiOutTranspose     int
+	MidiPlaybackFile     io.ReadSeeker
+	MidiPlaybackTrack    uint16
+	MidiPlaybackOffset   float64
+	MidiPlaybackSchedule time.Time
+	MidiPlaybackLoop     time.Duration
+	MidiPlaybackEnabled  bool
+	NtpOffset            float64
 
 	hWnd        uintptr
 	hMidiIn     uintptr
 	hMidiOut    uintptr
 	sysexBuffer [2]*winmm.MIDIHDR
 
-	ctx                 context.Context
-	pendingNotes        chan *midiMessage
-	lastNoteOn          *midiMessage
-	pressedKeys         [256]bool
-	pressedKeysCount    int
-	isCtrlDown          bool
-	isAltDown           bool
-	isShiftDown         bool
-	clearModifiersTimer *time.Timer
-	keysMutex           *sync.Mutex
+	ctx          context.Context
+	midiBuffer   *midiBuffer
+	pendingNotes chan *midiMessage
+	lastNoteOn   *midiMessage
+	keyStatus    *keystrokeStatus
 }
 
 type midiMessage struct {
@@ -104,8 +107,6 @@ func (app *application) run(args []string) int {
 	app.MidiOutTranspose = 0
 
 	app.pendingNotes = make(chan *midiMessage, 256)
-	app.clearModifiersTimer = time.NewTimer(app.IdleDuration)
-	app.keysMutex = new(sync.Mutex)
 
 	err := app.startWebServer()
 	if err != nil {
@@ -187,22 +188,6 @@ func (app *application) processMidi() {
 	}
 }
 
-func (app *application) processKeystrokes() {
-	for {
-		select {
-		case r, ok := <-app.KeystrokeGoro:
-			if !ok {
-				return
-			}
-			_ = cgc.RunOneRequest(app.ctx, r)
-		case <-app.clearModifiersTimer.C:
-			app.clearModifiers()
-		case <-app.ctx.Done():
-			return
-		}
-	}
-}
-
 func (app *application) consumeStdin() {
 	hStdin := kernel32.GetStdHandle(kernel32.STD_INPUT_HANDLE)
 	if hStdin == 0 || hStdin == kernel32.INVALID_HANDLE_VALUE {
@@ -251,7 +236,8 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 		})
 	case winmm.MM_MIM_LONGDATA:
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := append([]byte{}, (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]...)
+		midiMsg := make([]byte, midiHeader.DwBytesRecorded)
+		copy(midiMsg, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
 		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
 			app.onMidiInMessage(midiMsg)
 			return nil, nil
@@ -265,7 +251,8 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
 	case winmm.MM_MIM_LONGERROR:
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
-		midiMsg := append([]byte{}, (*[512]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded]...)
+		midiMsg := make([]byte, midiHeader.DwBytesRecorded)
+		copy(midiMsg, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
 		fmt.Printf("Invalid MIDI message: %x\n", midiMsg)
 		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
 		if err != nil {
