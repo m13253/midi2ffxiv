@@ -419,7 +419,7 @@
             loopIntervalMinutes = loopIntervalMinutes < 10 ? "0" + loopIntervalMinutes : "" + loopIntervalMinutes;
             loopIntervalSeconds = loopIntervalSeconds < 10 ? "0" + loopIntervalSeconds : "" + loopIntervalSeconds;
             document.getElementById("sched-start-time").value = startTimeHours + " : " + startTimeMinutes + " : " + startTimeSeconds;
-            document.getElementById("sched-loop-enabled").value = loopEnabled;
+            document.getElementById("sched-loop-enabled").checked = loopEnabled;
             document.getElementById("sched-loop-interval").value = loopIntervalHours + " : " + loopIntervalMinutes + " : " + loopIntervalSeconds;
         }, function onError(event, error) {
         });
@@ -433,7 +433,7 @@
             reportError("Invalid start time.");
             return;
         }
-        var loopEnabled = document.getElementById("sched-loop-enabled").value;
+        var loopEnabled = document.getElementById("sched-loop-enabled").checked;
         var loopIntervalMatch = document.getElementById("sched-loop-interval").value.match(durationRegEx);
         if (!loopIntervalMatch && !schedulerEnabled && loopEnabled) {
             reportError("Invalid loop interval.");
