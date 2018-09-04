@@ -173,7 +173,7 @@
 
     function onSynthBankChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
+        var value = this.value || "0";
         doSynthInstrumentRefresh();
         requestHTTP("PUT", "/midi-output-bank", value, function onLoad(event, response) {
             reportMessage("MIDI bank changed to " + value + ".");
@@ -184,7 +184,7 @@
 
     function onSynthPatchChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
+        var value = this.value || "47";
         doSynthInstrumentRefresh();
         requestHTTP("PUT", "/midi-output-patch", value - 1, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
@@ -195,7 +195,7 @@
 
     function onSynthTransposeChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
+        var value = this.value || "0";
         doSynthInstrumentRefresh();
         requestHTTP("PUT", "/midi-output-transpose", value, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
@@ -374,7 +374,7 @@
 
     function onMIDITrackNumberChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
+        var value = this.value || "1";
         requestHTTP("PUT", "/midi-playback-track", value, function onLoad(event, response) {
             reportMessage("MIDI track changed to #" + value + ".");
         }, function onError(event, error) {
@@ -391,7 +391,7 @@
 
     function onMIDIOffsetMsChanged() {
         if (suppressEvents) { return; }
-        var value = this.value;
+        var value = this.value || "0";
         requestHTTP("PUT", "/midi-playback-offset", value * 0.001, function onLoad(event, response) {
         }, function onError(event, error) {
             reportError(error);
