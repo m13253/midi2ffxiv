@@ -154,6 +154,9 @@ func (app *application) closeMidiOutDevice() {
 }
 
 func (app *application) setMidiOutBank(midiOutBank uint16) error {
+	if app.MidiOutDevice == -1 {
+		return nil
+	}
 	err := winmm.MidiOutShortMsg(app.hMidiOut, 0x0000b0|((uint32(midiOutBank)<<23)&0x7f0000))
 	if err != nil {
 		return err
@@ -167,6 +170,9 @@ func (app *application) setMidiOutBank(midiOutBank uint16) error {
 }
 
 func (app *application) setMidiOutPatch(midiOutPatch uint8) error {
+	if app.MidiOutDevice == -1 {
+		return nil
+	}
 	err := winmm.MidiOutShortMsg(app.hMidiOut, 0x00c0|((uint32(midiOutPatch)<<8)&0x7f00))
 	if err != nil {
 		return err
@@ -279,6 +285,9 @@ func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
 }
 
 func (app *application) sendAllNoteOff() error {
+	if app.MidiOutDevice == -1 {
+		return nil
+	}
 	for i := uint32(0x007bb0); i <= 0x007bbf; i++ {
 		err := winmm.MidiOutShortMsg(app.hMidiOut, i)
 		if err != nil {

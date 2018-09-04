@@ -286,20 +286,6 @@
         "max_deviation": 0,
     };
 
-    function doGetServerTime() {
-        var before = Date.now();
-        requestHTTP("GET", "/current-time", null, function onLoad(event, response) {
-            var after = Date.now();
-            var rtt = (after - before) * 0.001;
-            response["time"] += rtt / 2;
-            response["offset"] = response["time"] - after * 0.001;
-            response["max_deviation"] += rtt;
-            serverTime = response;
-        }, function onError(event, error) {
-            serverTime["synced"] = false;
-        });
-    }
-
     function updateServerTime() {
         var el = document.getElementById("current-time");
         try {
@@ -318,6 +304,20 @@
             el.value = "-- : -- : --.--- (unsynced)";
         }
         requestAnimationFrame(updateServerTime);
+    }
+
+    function doGetServerTime() {
+        var before = Date.now();
+        requestHTTP("GET", "/current-time", null, function onLoad(event, response) {
+            var after = Date.now();
+            var rtt = (after - before) * 0.001;
+            response["time"] += rtt / 2;
+            response["offset"] = response["time"] - after * 0.001;
+            response["max_deviation"] += rtt;
+            serverTime = response;
+        }, function onError(event, error) {
+            serverTime["synced"] = false;
+        });
     }
 
     function getServerTime() {
@@ -356,11 +356,23 @@
     }
 
     function onMIDITrackNumberChanged() {
-        reportError("Feature not implemented yet");
+        if (suppressEvents) { return; }
+        var value = this.value;
+        requestHTTP("PUT", "/midi-playback-track", value, function onLoad() {
+            reportMessage("MIDI track changed to #" + value + ".");
+        }, function onError(event, error) {
+            reportError(error);
+        })
     }
 
     function onMIDIOffsetMsChanged() {
-        reportError("Feature not implemented yet");
+        if (suppressEvents) { return; }
+        var value = this.value;
+        requestHTTP("PUT", "/midi-playback-offset", value * 0.001, function onLoad() {
+            reportMessage("MIDI offset changed to " + value + " ms.");
+        }, function onError(event, error) {
+            reportError(error);
+        })
     }
 
     function onSchedSetClicked() {
