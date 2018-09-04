@@ -39,7 +39,6 @@ type midiFileBuffer struct {
 	MidiTracks       []midiFileTrack
 	TempoTable       []tempoEntry
 	TicksPerBeat     uint16
-	playbackEnabled  bool
 	playbackProgress int
 }
 
@@ -61,13 +60,11 @@ type tempoEntry struct {
 	MicrosecondsPerBeat uint32
 }
 
-func (app *application) processPlayback() {
-	app.midiFileBuffer = &midiFileBuffer{
-		playbackProgress: -1,
-	}
+func (app *application) processMidiPlayback() {
+	app.midiFileBuffer = &midiFileBuffer{}
 	for {
 		select {
-		case r, ok := <-app.PlaybackGoro:
+		case r, ok := <-app.MidiPlaybackGoro:
 			if !ok {
 				return
 			}
@@ -94,7 +91,7 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 		if parsedFile.GetFormat() == smf.Format2 {
 			tempoTable = []tempoEntry{}
 		}
-		parsedTrack := parsedFile.GetTrack(1)
+		parsedTrack := parsedFile.GetTrack(uint16(trackID))
 		track := make([]*midiFileEvent, 0, parsedTrack.Len())
 
 		ticks := uint64(0)
@@ -103,8 +100,7 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 		msPerBeat := uint32(500000)
 		nextTempoEntry := 0
 
-		it := parsedTrack.GetIterator()
-		for {
+		for it := parsedTrack.GetIterator(); it.MoveNext(); {
 			event := it.GetValue()
 			delta := uint64(event.GetDTime())
 
@@ -121,7 +117,7 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 
 			status := event.GetStatus()
 			data := event.GetData()
-			if status == smf.MetaStatus && data[0] == smf.MetaSetTempo {
+			if status == smf.MetaStatus && len(data) > 1 && data[0] == smf.MetaSetTempo {
 				if len(data) != 5 || data[1] != 3 {
 					return errors.New("Unrecognized MIDI tempo settings")
 				}
@@ -143,10 +139,6 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 				},
 				Message: message,
 			})
-
-			if !it.MoveNext() {
-				break
-			}
 		}
 
 		midiTracks[trackID] = track

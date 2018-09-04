@@ -24,3 +24,7 @@
 */
 
 package main
+
+func (app *application) processNTP() {
+	_ = app.NtpGoro.RunLoop(app.ctx)
+}

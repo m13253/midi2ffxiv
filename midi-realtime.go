@@ -39,6 +39,10 @@ type midiRealtimeEvent struct {
 	Message []byte
 }
 
+func (app *application) processMidiRealtime() {
+	_ = app.MidiRealtimeGoro.RunLoop(app.ctx)
+}
+
 func (app *application) listMidiInDevices() []string {
 	midiInDeviceCount := winmm.MidiInGetNumDevs()
 	results := make([]string, midiInDeviceCount)

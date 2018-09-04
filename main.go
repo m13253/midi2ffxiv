@@ -44,11 +44,11 @@ import (
 type application struct {
 	preset
 
-	Quit          context.CancelFunc
-	NTPGoro       cgc.Executor
-	MidiGoro      cgc.Executor
-	PlaybackGoro  cgc.Executor
-	KeystrokeGoro cgc.Executor
+	Quit             context.CancelFunc
+	NtpGoro          cgc.Executor
+	MidiRealtimeGoro cgc.Executor
+	MidiPlaybackGoro cgc.Executor
+	KeystrokeGoro    cgc.Executor
 
 	MidiInDevice                int
 	MidiOutDevice               int
@@ -92,8 +92,10 @@ func (app *application) run(args []string) int {
 	app.preset = defaultPreset
 
 	app.ctx, app.Quit = context.WithCancel(context.Background())
-	app.MidiGoro = cgc.NewBuffered(1)
 	app.KeystrokeGoro = cgc.NewBuffered(1)
+	app.MidiRealtimeGoro = cgc.NewBuffered(1)
+	app.NtpGoro = cgc.NewBuffered(1)
+	app.MidiPlaybackGoro = cgc.NewBuffered(1)
 
 	app.MidiInDevice = -1
 	app.MidiOutDevice = -1
@@ -121,9 +123,11 @@ func (app *application) run(args []string) int {
 	}
 
 	go app.consumeStdin()
-	go app.MidiGoro.RunLoop(app.ctx)
 	go app.processKeystrokes()
-	go app.processMidi()
+	go app.processMidiPlayback()
+	go app.processMidiQueue()
+	go app.processMidiRealtime()
+	go app.processNTP()
 	go app.waitForQuit()
 
 	for {
@@ -144,7 +148,7 @@ func (app *application) run(args []string) int {
 	return 0
 }
 
-func (app *application) processMidi() {
+func (app *application) processMidiQueue() {
 	for {
 		select {
 		case nextNote := <-app.pendingNotes:
@@ -165,7 +169,7 @@ func (app *application) processMidi() {
 				})
 			}
 
-			_ = app.MidiGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
 				err := app.sendMidiOutMessage(nextNote)
 				if err != nil {
 					fmt.Println("Error: ", err)
@@ -220,7 +224,7 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 	case winmm.MM_MIM_CLOSE:
 	case winmm.MM_MIM_DATA, winmm.MM_MIM_MOREDATA:
 		midiEvent := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
+		app.MidiRealtimeGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
 			app.onMidiInEvent(midiEvent)
 			return nil, nil
 		})
@@ -228,7 +232,7 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
 		midiEvent := make([]byte, midiHeader.DwBytesRecorded)
 		copy(midiEvent, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
-		app.MidiGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
+		app.MidiRealtimeGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
 			app.onMidiInEvent(midiEvent)
 			return nil, nil
 		})

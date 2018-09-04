@@ -287,8 +287,9 @@
 
     function onMIDIFileChanged() {
         if (this.files.length > 0) {
-            requestHTTP("PUT", "/midi-playback-file", this.files[0], function onLoad(event, response) {
-                reportMessage("Loaded: " + this.files.name);
+            var file = this.files[0];
+            requestHTTP("PUT", "/midi-playback-file", file, function onLoad(event, response) {
+                reportMessage("MIDI file loaded: " + file.name);
             }, function onError(event, error) {
                 reportError(error);
             });

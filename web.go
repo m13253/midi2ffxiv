@@ -142,7 +142,7 @@ func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.openMidiInDevice(int(value))
 		})
 		if err != nil {
@@ -156,7 +156,7 @@ func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {
 		Devices  []string `json:"devices"`
 		Selected int      `json:"selected"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Devices = h.app.listMidiInDevices()
 		result.Selected = h.app.MidiInDevice
 		return nil, nil
@@ -178,7 +178,7 @@ func (h *webHandlers) midiOutputDevice(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.openMidiOutDevice(int(value))
 		})
 		if err != nil {
@@ -192,7 +192,7 @@ func (h *webHandlers) midiOutputDevice(w http.ResponseWriter, r *http.Request) {
 		Devices  []string `json:"devices"`
 		Selected int      `json:"selected"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Devices = h.app.listMidiOutDevices()
 		result.Selected = h.app.MidiOutDevice
 		return nil, nil
@@ -214,7 +214,7 @@ func (h *webHandlers) midiOutputBank(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.setMidiOutBank(uint16(value))
 		})
 		if err != nil {
@@ -227,7 +227,7 @@ func (h *webHandlers) midiOutputBank(w http.ResponseWriter, r *http.Request) {
 	var result struct {
 		Bank uint16 `json:"bank"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Bank = h.app.MidiOutBank
 		return nil, nil
 	})
@@ -248,7 +248,7 @@ func (h *webHandlers) midiOutputPatch(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.setMidiOutPatch(uint8(value))
 		})
 		if err != nil {
@@ -261,7 +261,7 @@ func (h *webHandlers) midiOutputPatch(w http.ResponseWriter, r *http.Request) {
 	var result struct {
 		Patch uint8 `json:"patch"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Patch = h.app.MidiOutPatch
 		return nil, nil
 	})
@@ -282,7 +282,7 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			h.app.setMidiOutTranspose(int(value))
 			return nil, nil
 		})
@@ -296,7 +296,7 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 	var result struct {
 		Transpose int `json:"transpose"`
 	}
-	h.app.MidiGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+	h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Transpose = h.app.MidiOutTranspose
 		return nil, nil
 	})
@@ -305,7 +305,7 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 
 func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
-		_, err := h.app.PlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		_, err := h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 			return nil, h.app.setMidiPlaybackFile(r.Body)
 		})
 		if err != nil {
@@ -314,6 +314,7 @@ func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
 		}
 
 		writeJSON(w, struct{}{})
+		return
 	}
 
 	http.Error(w, "Method Not Allowed", 405)
