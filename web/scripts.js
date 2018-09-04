@@ -174,7 +174,7 @@
     function onSynthBankChanged() {
         if (suppressEvents) { return; }
         var value = this.value || "0";
-        doSynthInstrumentRefresh();
+        doSynthInstrumentUpdate();
         requestHTTP("PUT", "/midi-output-bank", value, function onLoad(event, response) {
             reportMessage("MIDI bank changed to " + value + ".");
         }, function onError(event, error) {
@@ -185,8 +185,8 @@
     function onSynthPatchChanged() {
         if (suppressEvents) { return; }
         var value = this.value || "47";
-        doSynthInstrumentRefresh();
-        requestHTTP("PUT", "/midi-output-patch", value - 1, function onLoad(event, response) {
+        doSynthInstrumentUpdate();
+        requestHTTP("PUT", "/midi-output-patch", +value - 1, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
         }, function onError(event, error) {
             reportError(error);
@@ -196,7 +196,7 @@
     function onSynthTransposeChanged() {
         if (suppressEvents) { return; }
         var value = this.value || "0";
-        doSynthInstrumentRefresh();
+        doSynthInstrumentUpdate();
         requestHTTP("PUT", "/midi-output-transpose", value, function onLoad(event, response) {
             reportMessage("MIDI patch changed to " + value + ".");
         }, function onError(event, error) {
@@ -277,7 +277,7 @@
             }
         }
         requestHTTP("PUT", "/midi-output-bank", synthBank.value, countLoad, countError);
-        requestHTTP("PUT", "/midi-output-patch", synthPatch.value - 1, countLoad, countError);
+        requestHTTP("PUT", "/midi-output-patch", +synthPatch.value - 1, countLoad, countError);
         requestHTTP("PUT", "/midi-output-transpose", synthTranspose.value, countLoad, countError);
     }
 
