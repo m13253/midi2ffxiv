@@ -1,3 +1,13 @@
+# Bach Preload.mid
+
+Song name: Prelude 1 in C Major (BWV 846)
+Original:  Johann Sebastian Bach
+Copyright: Public Domain
+Run time:  1:35
+
+Part 1:    Transpose  0, recommended: Harp
+
+
 # His Reach.mid
 
 Song name: 神の拳が届く場所 (remix)
