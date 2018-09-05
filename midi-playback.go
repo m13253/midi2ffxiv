@@ -226,7 +226,6 @@ func (app *application) playNextMidiEvent() bool {
 	if index > 0 {
 		lastNoteProgress := thisTrack[index-1].Microseconds.Duration()
 		if lastNoteProgress > playbackProgress {
-			log.Println("Offset changed, resetting playback.")
 			app.resetMidiPlayback()
 			return false
 		}
@@ -274,6 +273,7 @@ func (app *application) setMidiPlaybackScheduler(enabled bool, startTime time.Ti
 }
 
 func (app *application) resetMidiPlayback() {
+	log.Println("Resetting playback.")
 	_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
 		app.sendAllNoteOff()
 		return nil, nil
