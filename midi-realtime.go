@@ -38,6 +38,7 @@ import (
 type midiRealtimeEvent struct {
 	Time              time.Time
 	Message           []byte
+	Realtime          bool
 	AlreadyTransposed bool
 }
 
@@ -181,8 +182,9 @@ func (app *application) setMidiOutTranspose(midiOutTranspose int) {
 
 func (app *application) onMidiInEvent(event []byte) {
 	app.addMidiInEvent(&midiRealtimeEvent{
-		Time:    time.Now(),
-		Message: event,
+		Time:     time.Now(),
+		Message:  event,
+		Realtime: true,
 	})
 }
 
@@ -263,8 +265,9 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 	case 0xf0:
 	}
 	app.pendingNotes <- &midiRealtimeEvent{
-		Time:    event.Time,
-		Message: filteredMessage,
+		Time:     event.Time,
+		Message:  filteredMessage,
+		Realtime: event.Realtime,
 	}
 }
 

@@ -5,6 +5,7 @@ Song name: 神の拳が届く場所 (remix)
 Original:  祖堅正慶 (Masayoshi Soken)
 Remix:     Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
+Run time:  1:57
 
 Part 1:    Transpose +12, recommended: Flute
 Part 2:    Transpose +12, recommended: Oboe (identical to Part 1)
@@ -20,6 +21,7 @@ Song name: プレリュード (Relay mix)
 Original:  植松伸夫 (Nobuo Uematsu)
 Remix:     Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
+Run time:  4:01
 
 Part 1:    Transpose +12, recommended: Grand Piano
 Part 2:    Transpose   0, recommended: Harp
@@ -33,6 +35,7 @@ Song name: 潮風香る街 (remix)
 Original:  祖堅正慶 (Masayoshi Soken)
 Remix:     Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
+Run time:  2:00
 
 Part 1:    Transpose +12, recommended: Oboe
 Part 2:    Transpose   0, recommended: Clarinet

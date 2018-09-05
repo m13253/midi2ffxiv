@@ -168,7 +168,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 				app.keyStatus.shift.LastRelease = now
 			}
 		}
-		if now.Sub(app.keyStatus.ctrl.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.alt.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.shift.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease) < app.ModifierCooldown {
+		if !event.Realtime || now.Sub(app.keyStatus.ctrl.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.alt.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.shift.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease) < app.ModifierCooldown {
 			for i := range pInputs {
 				_, err := user32.SendInput(pInputs[i : i+1])
 				if err != nil {
