@@ -28,6 +28,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"runtime"
 	"sync"
@@ -119,18 +120,18 @@ func (app *application) run(args []string) int {
 
 	err := app.startWebServer()
 	if err != nil {
-		fmt.Println("Error: ", err)
+		log.Println("Error: ", err)
 		return app.delayReturn(1)
 	}
 
 	hWndClass, err := user32.RegisterClassEx(0, app.windowProc, 0, 0, 0, 0, 0, 0, 0, "midi2ffxiv", 0)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		log.Println("Error: ", err)
 		return app.delayReturn(int(err.(syscall.Errno)))
 	}
 	app.hWnd, err = user32.CreateWindowEx(0, uintptr(hWndClass), "midi2ffxiv", 0, 0, 0, 0, 0, user32.HWND_MESSAGE, 0, 0, nil)
 	if err != nil {
-		fmt.Println("Error: ", err)
+		log.Println("Error: ", err)
 		return app.delayReturn(int(err.(syscall.Errno)))
 	}
 
@@ -145,7 +146,7 @@ func (app *application) run(args []string) int {
 	for {
 		bResult, lpMsg, err := user32.GetMessage(app.hWnd, 0, 0)
 		if err != nil {
-			fmt.Println("Error: ", err)
+			log.Println("Error: ", err)
 			os.Exit(int(err.(syscall.Errno)))
 		}
 		if bResult == 0 {
@@ -188,7 +189,7 @@ func (app *application) processMidiQueue() {
 			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
 				err := app.sendMidiOutMessage(nextNote)
 				if err != nil {
-					fmt.Println("Error: ", err)
+					log.Println("Error: ", err)
 				}
 				return nil, nil
 			})
@@ -254,19 +255,19 @@ func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uin
 		})
 		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
 		if err != nil {
-			fmt.Println("Error: ", err)
+			log.Println("Error: ", err)
 		}
 	case winmm.MM_MIM_ERROR:
 		midiEvent := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		fmt.Printf("Invalid MIDI message: %x\n", midiEvent)
+		log.Printf("Invalid MIDI message: %x\n", midiEvent)
 	case winmm.MM_MIM_LONGERROR:
 		midiHeader := (*winmm.MIDIHDR)(unsafe.Pointer(lParam))
 		midiEvent := make([]byte, midiHeader.DwBytesRecorded)
 		copy(midiEvent, (*[65536]byte)(unsafe.Pointer(midiHeader.LpData))[:midiHeader.DwBytesRecorded])
-		fmt.Printf("Invalid MIDI message: %x\n", midiEvent)
+		log.Printf("Invalid MIDI message: %x\n", midiEvent)
 		err := winmm.MidiInAddBuffer(app.hMidiIn, midiHeader)
 		if err != nil {
-			fmt.Println("Error: ", err)
+			log.Println("Error: ", err)
 		}
 	default:
 		return user32.DefWindowProc(hWnd, uMsg, wParam, lParam)

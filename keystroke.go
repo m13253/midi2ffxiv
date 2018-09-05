@@ -183,7 +183,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 			if len(pInputs) != 0 {
 				_, err := user32.SendInput(pInputs)
 				if err != nil {
-					fmt.Println("Error: ", err)
+					log.Println("Error: ", err)
 				}
 				app.printPressedKeys()
 				pInputs = []user32.INPUT_KEYBDINPUT{}
@@ -198,7 +198,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 			if len(pInputs) != 0 {
 				_, err := user32.SendInput(pInputs)
 				if err != nil {
-					fmt.Println("Error: ", err)
+					log.Println("Error: ", err)
 				}
 				app.printPressedKeys()
 				pInputs = []user32.INPUT_KEYBDINPUT{}
@@ -251,7 +251,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 	if len(pInputs) != 0 {
 		_, err := user32.SendInput(pInputs)
 		if err != nil {
-			fmt.Println("Error: ", err)
+			log.Println("Error: ", err)
 		}
 		app.printPressedKeys()
 	}
@@ -311,7 +311,7 @@ func (app *application) clearModifiers() {
 	if len(pInputs) != 0 {
 		_, err := user32.SendInput(pInputs)
 		if err != nil {
-			fmt.Println("Error: ", err)
+			log.Println("Error: ", err)
 		}
 		app.printPressedKeys()
 	}
