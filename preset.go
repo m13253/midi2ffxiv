@@ -102,4 +102,6 @@ var defaultPreset = preset{
 		0x54: {'I', false, false, true},
 	},
 	WebListenAddr: ":65300",
+	WebUsername:   "",
+	WebPassword:   "",
 }

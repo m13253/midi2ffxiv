@@ -48,13 +48,23 @@ type webHandlers struct {
 	serveMux *http.ServeMux
 }
 
+type basicAuthHandler struct {
+	Handler  http.Handler
+	Username string
+	Password string
+}
+
 func (app *application) startWebServer() error {
 	h := &webHandlers{
 		app:      app,
 		server:   new(http.Server),
 		serveMux: http.NewServeMux(),
 	}
-	h.server.Handler = h.serveMux
+	h.server.Handler = &basicAuthHandler{
+		Handler:  h.serveMux,
+		Username: h.app.WebUsername,
+		Password: h.app.WebPassword,
+	}
 	h.serveMux.Handle("/", http.FileServer(http.Dir("web")))
 	h.serveMux.HandleFunc("/midi-input-device", h.midiInputDevice)
 	h.serveMux.HandleFunc("/midi-output-device", h.midiOutputDevice)
@@ -479,4 +489,13 @@ func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(stream)
+}
+
+func (h *basicAuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if user, pass, _ := r.BasicAuth(); user != h.Username || pass != h.Password {
+		w.Header().Set("WWW-Authenticate", "Basic")
+		http.Error(w, "Unauthorized", 401)
+		return
+	}
+	h.Handler.ServeHTTP(w, r)
 }
