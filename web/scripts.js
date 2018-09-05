@@ -349,7 +349,7 @@
 
     function onCurrentTimeCopyClicked() {
         var el = document.getElementById("sched-start-time");
-        var now = new Date(Date.now() + serverTime["offset"] * 1000 + 5000);
+        var now = new Date(Date.now() + serverTime["offset"] * 1000 + 3000);
         var hours = now.getHours();
         var minutes = now.getMinutes();
         var seconds = now.getSeconds();
@@ -357,7 +357,7 @@
         minutes = minutes < 10 ? "0" + minutes : "" + minutes;
         seconds = seconds < 10 ? "0" + seconds : "" + seconds;
         el.value = hours + " : " + minutes + " : " + seconds;
-        reportMessage("Scheduled time is set to 5 seconds later.");
+        reportMessage("Scheduled time is set to 3 seconds later.");
     }
 
     function onMIDIFileChanged() {
@@ -414,23 +414,31 @@
             } else {
                 document.getElementById("sched-set").classList.remove("pure-button-primary");
             }
-            var startTime = new Date(response["start_time"] * 1000);
+            var startTime = response["start_time"] !== null ? new Date(response["start_time"] * 1000) : null;
+            if (startTime !== null) {
+                var startTimeHours = startTime.getHours();
+                var startTimeMinutes = startTime.getMinutes();
+                var startTimeSeconds = startTime.getSeconds();
+                startTimeHours = startTimeHours < 10 ? "0" + startTimeHours : "" + startTimeHours;
+                startTimeMinutes = startTimeMinutes < 10 ? "0" + startTimeMinutes : "" + startTimeMinutes;
+                startTimeSeconds = startTimeSeconds < 10 ? "0" + startTimeSeconds : "" + startTimeSeconds;
+                document.getElementById("sched-start-time").value = startTimeHours + " : " + startTimeMinutes + " : " + startTimeSeconds;
+            } else {
+                document.getElementById("sched-start-time").value = "";
+            }
             var loopEnabled = response["loop_enabled"];
-            var loopInterval = response["loop_interval"];
-            var startTimeHours = startTime.getHours();
-            var startTimeMinutes = startTime.getMinutes();
-            var startTimeSeconds = startTime.getSeconds();
-            startTimeHours = startTimeHours < 10 ? "0" + startTimeHours : "" + startTimeHours;
-            startTimeMinutes = startTimeMinutes < 10 ? "0" + startTimeMinutes : "" + startTimeMinutes;
-            startTimeSeconds = startTimeSeconds < 10 ? "0" + startTimeSeconds : "" + startTimeSeconds;
-            var loopIntervalHours = Math.trunc(loopInterval / 3600);
-            var loopIntervalMinutes = Math.trunc((loopInterval % 3600) / 60);
-            var loopIntervalSeconds = Math.trunc(loopInterval % 60);
-            loopIntervalMinutes = loopIntervalMinutes < 10 ? "0" + loopIntervalMinutes : "" + loopIntervalMinutes;
-            loopIntervalSeconds = loopIntervalSeconds < 10 ? "0" + loopIntervalSeconds : "" + loopIntervalSeconds;
-            document.getElementById("sched-start-time").value = startTimeHours + " : " + startTimeMinutes + " : " + startTimeSeconds;
             document.getElementById("sched-loop-enabled").checked = loopEnabled;
-            document.getElementById("sched-loop-interval").value = loopIntervalHours + " : " + loopIntervalMinutes + " : " + loopIntervalSeconds;
+            var loopInterval = response["loop_interval"];
+            if (loopInterval > 0) {
+                var loopIntervalHours = Math.trunc(loopInterval / 3600);
+                var loopIntervalMinutes = Math.trunc((loopInterval % 3600) / 60);
+                var loopIntervalSeconds = Math.trunc(loopInterval % 60);
+                loopIntervalMinutes = loopIntervalMinutes < 10 ? "0" + loopIntervalMinutes : "" + loopIntervalMinutes;
+                loopIntervalSeconds = loopIntervalSeconds < 10 ? "0" + loopIntervalSeconds : "" + loopIntervalSeconds;
+                document.getElementById("sched-loop-interval").value = loopIntervalHours + " : " + loopIntervalMinutes + " : " + loopIntervalSeconds;
+            } else {
+                document.getElementById("sched-loop-interval").value = "";
+            }
         }, function onError(event, error) {
         });
     }
@@ -450,7 +458,7 @@
             return;
         }
         var now = new Date();
-        var startTime = new Date(0);
+        var startTime = null;
         if (startTimeMatch) {
             startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), +startTimeMatch[1], +startTimeMatch[2], +startTimeMatch[3], 0);
             if (startTime.getTime() < now.getTime()) {
@@ -472,23 +480,25 @@
         }
 
         var button = this;
-        button.disabled = true;
-        setTimeout(function onTimeout() {
-            button.disabled = false;
-        }, 1000);
+        if (!schedulerEnabled) {
+            button.disabled = true;
+            setTimeout(function onTimeout() {
+                button.disabled = false;
+            }, 1000);
+        }
 
         var body = {
             "enabled": !schedulerEnabled,
-            "start_time": startTime.getTime() * 0.001,
+            "start_time": startTime !== null ? startTime.getTime() * 0.001 : null,
             "loop_enabled": loopEnabled,
             "loop_interval": loopInterval,
         };
         requestHTTP("PUT", "/scheduler", JSON.stringify(body), function onLoad(event, response) {
             schedulerEnabled = response["enabled"];
             if (schedulerEnabled) {
-                this.classList.add("pure-button-primary");
+                button.classList.add("pure-button-primary");
             } else {
-                this.classList.remove("pure-button-primary");
+                button.classList.remove("pure-button-primary");
             }
         }, function onError(event, error) {
             reportError(error);
@@ -510,6 +520,7 @@
     document.getElementById("midi-offset-ms").addEventListener("change", onMIDIOffsetMsChanged);
     document.getElementById("sched-set").addEventListener("click", onSchedSetClicked);
 
+    document.getElementById("midi-file").value = "";
     doMidiInputRefresh(true);
     doMidiOutputRefresh(true);
     doSynthInstrumentRefresh();

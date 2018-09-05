@@ -26,12 +26,16 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/algoGuy/EasyMIDI/smf"
 	"github.com/algoGuy/EasyMIDI/smfio"
+	"github.com/algoGuy/EasyMIDI/vlq"
 	cgc "github.com/m13253/cgc-go"
 )
 
@@ -41,7 +45,6 @@ type midiFileBuffer struct {
 	TicksPerBeat   uint16
 	nextEventIndex int
 	nextEventTimer *time.Timer
-	loopTimer      *time.Timer
 }
 
 type midiFileTrack []*midiFileEvent
@@ -65,10 +68,20 @@ type tempoEntry struct {
 func (app *application) processMidiPlayback() {
 	app.midiFileBuffer = &midiFileBuffer{
 		nextEventTimer: time.NewTimer(0),
-		loopTimer:      time.NewTimer(0),
 	}
 	for {
-		now := time.Now()
+		for app.playNextMidiEvent() {
+			select {
+			case r, ok := <-app.MidiPlaybackGoro:
+				if !ok {
+					return
+				}
+				_ = cgc.RunOneRequest(app.ctx, r)
+			case <-app.ctx.Done():
+				return
+			default:
+			}
+		}
 		select {
 		case r, ok := <-app.MidiPlaybackGoro:
 			if !ok {
@@ -76,12 +89,7 @@ func (app *application) processMidiPlayback() {
 			}
 			_ = cgc.RunOneRequest(app.ctx, r)
 		case <-app.midiFileBuffer.nextEventTimer.C:
-			if app.MidiPlaybackScheduleEnabled && now.After(app.MidiPlaybackSchedule) {
-			}
-		case <-app.midiFileBuffer.loopTimer.C:
-			if app.MidiPlaybackScheduleEnabled && now.After(app.MidiPlaybackSchedule) && app.MidiPlaybackLoopEnabled {
-				app.resetMidiPlayback()
-			}
+			continue
 		case <-app.ctx.Done():
 			return
 		}
@@ -128,24 +136,38 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 			msNumerator += delta * uint64(msPerBeat)
 			ticks += delta
 
-			status := event.GetStatus()
-			data := event.GetData()
-			if status == smf.NoteOnStatus && data[0] == 0 {
-				status = smf.NoteOffStatus
-			} else if status == smf.MetaStatus && len(data) > 1 && data[0] == smf.MetaSetTempo {
-				if len(data) != 5 || data[1] != 3 {
-					return errors.New("Unrecognized MIDI tempo settings")
+			var message []byte
+
+			switch event.(type) {
+			case *smf.MIDIEvent:
+				message = []byte{event.GetStatus()}
+				message = append(message, event.GetData()...)
+
+			case *smf.MetaEvent:
+				message = []byte{smf.MetaStatus, event.(*smf.MetaEvent).GetMetaType()}
+				message = append(message, vlq.GetBytes(uint32(len(event.GetData())))...)
+				message = append(message, event.GetData()...)
+
+				if len(message) > 2 && message[1] == smf.MetaSetTempo {
+					if len(message) != 6 || message[2] != 3 {
+						return errors.New("Unrecognized MIDI tempo settings")
+					}
+					msPerBeat = (uint32(message[3]) << 16) | (uint32(message[4]) << 8) | uint32(message[5])
+					tempoTable = append(tempoTable, tempoEntry{
+						TicksElapsed:        ticks,
+						MicrosecondsPerBeat: msPerBeat,
+					})
 				}
-				msPerBeat = (uint32(data[2]) << 16) | (uint32(data[3]) << 8) | uint32(data[4])
-				tempoTable = append(tempoTable, tempoEntry{
-					TicksElapsed:        ticks,
-					MicrosecondsPerBeat: msPerBeat,
-				})
+
+			case *smf.SysexEvent:
+				message = []byte{event.GetStatus()}
+				message = append(message, vlq.GetBytes(uint32(len(event.GetData())))...)
+				message = append(message, event.GetData()...)
+
+			default:
+				return errors.New("Unrecognized MIDI event")
 			}
 
-			message := make([]byte, len(data)+1)
-			message[0] = status
-			copy(message[1:], data)
 			track = append(track, &midiFileEvent{
 				TicksElapsed: ticks,
 				Microseconds: midiFileAbsoluteTime{
@@ -156,6 +178,8 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 			})
 		}
 
+		fmt.Printf("Track #%d, %+v\n", trackID, tempoTable)
+
 		midiTracks[trackID] = track
 	}
 	app.midiFileBuffer.MidiTracks = midiTracks
@@ -164,15 +188,94 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 	return nil
 }
 
+func (app *application) playNextMidiEvent() bool {
+	if !app.MidiPlaybackScheduleEnabled {
+		return false
+	}
+	if int(app.MidiPlaybackTrack) >= len(app.midiFileBuffer.MidiTracks) {
+		log.Printf("Invalid track number (%d) >= len(Tracks) (%d)\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks))
+		return false
+	}
+	now := time.Now()
+	playbackProgress := now.Add(app.NtpClockOffset).Add(app.MidiPlaybackOffset).Sub(app.MidiPlaybackSchedule)
+	if playbackProgress < 0 {
+		app.midiFileBuffer.nextEventIndex = 0
+		app.midiFileBuffer.nextEventTimer.Reset(-playbackProgress)
+		return false
+	}
+	if app.MidiPlaybackLoopEnabled && app.MidiPlaybackLoop > 0 {
+		playbackProgress %= app.MidiPlaybackLoop
+	}
+	index := app.midiFileBuffer.nextEventIndex
+	thisTrack := app.midiFileBuffer.MidiTracks[app.MidiPlaybackTrack]
+	if index >= len(thisTrack) {
+		if app.MidiPlaybackLoopEnabled {
+			app.midiFileBuffer.nextEventIndex = 0
+			waitTime := app.MidiPlaybackLoop - playbackProgress
+			if waitTime < 0 {
+				waitTime = 0
+			}
+			log.Printf("Will loop in %s\n", waitTime)
+			app.midiFileBuffer.nextEventTimer.Reset(waitTime)
+		} else {
+			log.Println("Track finished.")
+			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+				app.sendAllNoteOff()
+				return nil, nil
+			})
+		}
+		return false
+	}
+	if index > 0 {
+		lastNoteProgress := thisTrack[index-1].Microseconds.Duration()
+		if lastNoteProgress > playbackProgress {
+			log.Println("Offset changed, resetting playback.")
+			app.resetMidiPlayback()
+			return false
+		}
+	}
+	nextNoteProgress := thisTrack[index].Microseconds.Duration()
+	if nextNoteProgress > playbackProgress {
+		app.midiFileBuffer.nextEventTimer.Reset(nextNoteProgress - playbackProgress)
+		return false
+	}
+	app.addMidiInEvent(&midiRealtimeEvent{
+		Time:    now.Add(-playbackProgress).Add(nextNoteProgress),
+		Message: thisTrack[index].Message,
+	})
+	app.midiFileBuffer.nextEventIndex = index + 1
+	return true
+}
+
 func (app *application) setMidiPlaybackTrack(trackNumber uint16) {
+	if app.MidiPlaybackTrack == trackNumber {
+		return
+	}
 	app.MidiPlaybackTrack = trackNumber
+	app.resetMidiPlayback()
 }
 
 func (app *application) setMidiPlaybackOffset(offset time.Duration) {
 	app.MidiPlaybackOffset = offset
 }
 
+func (app *application) getMidiPlaybackScheduler() (enabled bool, startTime time.Time, loopEnabled bool, loopInterval time.Duration) {
+	return app.MidiPlaybackScheduleEnabled, app.MidiPlaybackSchedule, app.MidiPlaybackLoopEnabled, app.MidiPlaybackLoop
+}
+
+func (app *application) setMidiPlaybackScheduler(enabled bool, startTime time.Time, loopEnabled bool, loopInterval time.Duration) {
+	app.MidiPlaybackScheduleEnabled = enabled
+	app.MidiPlaybackSchedule = startTime
+	app.MidiPlaybackLoopEnabled = loopEnabled
+	app.MidiPlaybackLoop = loopInterval
+	app.resetMidiPlayback()
+}
+
 func (app *application) resetMidiPlayback() {
+	_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+		app.sendAllNoteOff()
+		return nil, nil
+	})
 	app.midiFileBuffer.nextEventIndex = 0
 	app.midiFileBuffer.nextEventTimer.Reset(0)
 }

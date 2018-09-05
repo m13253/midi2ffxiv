@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -65,6 +66,7 @@ func (app *application) startWebServer() error {
 	h.serveMux.HandleFunc("/midi-playback-file", h.midiPlaybackFile)
 	h.serveMux.HandleFunc("/midi-playback-track", h.midiPlaybackTrack)
 	h.serveMux.HandleFunc("/midi-playback-offset", h.midiPlaybackOffset)
+	h.serveMux.HandleFunc("/scheduler", h.scheduler)
 
 	originalAddr, err := net.ResolveTCPAddr("tcp", app.WebListenAddr)
 	availableAddr := new(net.TCPAddr)
@@ -219,14 +221,10 @@ func (h *webHandlers) midiOutputBank(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
-			return nil, h.app.setMidiOutBank(uint16(value))
+		_, _ = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			h.app.setMidiOutBank(uint16(value))
+			return nil, nil
 		})
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), 503)
-			return
-		}
 	}
 
 	var result struct {
@@ -253,14 +251,10 @@ func (h *webHandlers) midiOutputPatch(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		_, err = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
-			return nil, h.app.setMidiOutPatch(uint8(value))
+		_, _ = h.app.MidiRealtimeGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			h.app.setMidiOutPatch(uint8(value))
+			return nil, nil
 		})
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), 503)
-			return
-		}
 	}
 
 	var result struct {
@@ -316,9 +310,9 @@ func (h *webHandlers) currentTime(w http.ResponseWriter, r *http.Request) {
 		MaxDeviation float64 `json:"max_deviation"`
 	}
 	synced, offset, maxDeviation := h.app.getNtpOffset()
-	now = now.Add(offset)
+	now = now.Add(offset).UTC()
 	result.Synced = synced
-	result.Time = float64(now.UTC().Unix()) + float64(now.Nanosecond())*1e-9
+	result.Time = float64(now.Unix()) + float64(now.Nanosecond())*1e-9
 	result.MaxDeviation = float64(maxDeviation/time.Nanosecond) * 1e-9
 	writeJSON(w, result)
 }
@@ -424,6 +418,52 @@ func (h *webHandlers) midiPlaybackOffset(w http.ResponseWriter, r *http.Request)
 	}
 	h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
 		result.Offset = float64(h.app.MidiPlaybackOffset/time.Nanosecond) * 1e-9
+		return nil, nil
+	})
+	writeJSON(w, result)
+}
+
+func (h *webHandlers) scheduler(w http.ResponseWriter, r *http.Request) {
+	var result struct {
+		Enabled      bool     `json:"enabled"`
+		StartTime    *float64 `json:"start_time"`
+		LoopEnabled  bool     `json:"loop_enabled"`
+		LoopInterval float64  `json:"loop_interval"`
+	}
+
+	if r.Method == "PUT" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		err = json.Unmarshal(body, &result)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		var startTime time.Time
+		if result.StartTime != nil {
+			i, f := math.Modf(*result.StartTime)
+			startTime = time.Unix(int64(i), int64(f*1e9))
+		}
+		h.app.setMidiPlaybackScheduler(result.Enabled, startTime, result.LoopEnabled, time.Duration(result.LoopInterval*1e9)*time.Nanosecond)
+	}
+
+	h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+		var (
+			startTime    time.Time
+			loopInterval time.Duration
+		)
+		result.Enabled, startTime, result.LoopEnabled, loopInterval = h.app.getMidiPlaybackScheduler()
+		if !startTime.IsZero() {
+			startTime = startTime.UTC()
+			result.StartTime = new(float64)
+			*result.StartTime = float64(startTime.Unix()) + float64(startTime.Nanosecond())*1e-9
+		}
+		result.LoopInterval = float64(loopInterval/time.Nanosecond) * 1e-9
 		return nil, nil
 	})
 	writeJSON(w, result)

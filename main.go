@@ -111,6 +111,7 @@ func (app *application) run(args []string) int {
 	app.MidiOutBank = 0
 	app.MidiOutPatch = 46
 	app.MidiOutTranspose = 0
+	app.MidiPlaybackTrack = 1
 
 	app.pendingNotes = make(chan *midiRealtimeEvent, 256)
 
@@ -169,7 +170,7 @@ func (app *application) processMidiQueue() {
 				Message: nextNote.Message,
 			}
 
-			if (nextNote.Message[0] == 0x90 || nextNote.Message[0] == 0xa0) && now.Sub(nextNote.Time) > app.MaxNoteDelay {
+			if (nextNote.Message[0] == 0x90 || nextNote.Message[0] == 0xa0) && !nextNote.Time.IsZero() && now.Sub(nextNote.Time) > app.MaxNoteDelay {
 				continue
 			}
 
