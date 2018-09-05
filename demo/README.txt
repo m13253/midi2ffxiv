@@ -31,7 +31,7 @@ Song name: プレリュード (Relay mix)
 Original:  植松伸夫 (Nobuo Uematsu)
 Remix:     Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
-Run time:  4:01
+Run time:  3:45
 
 Part 1:    Transpose +12, recommended: Grand Piano
 Part 2:    Transpose   0, recommended: Harp
