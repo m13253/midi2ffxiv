@@ -84,19 +84,19 @@ FAQ
 
    After you have Go, download the source code of MIDI2FFXIV, edit [preset.go](preset.go), find:
 
-```go
-    WebListenAddr: ":65300",
-    WebUsername:   "",
-    WebPassword:   "",
-```
+   ```go
+   WebListenAddr: ":65300",
+   WebUsername:   "",
+   WebPassword:   "",
+   ```
 
    Change them. Then type into Command Prompt to compile the program:
 
-```cmd
-cd /d "SOURCE CODE PATH"
-go get -d -u -v .
-go build
-```
+   ```cmd
+   cd /d "SOURCE CODE PATH"
+   go get -d -u -v .
+   go build
+   ```
 
 5. My anti-virus says MIDI2FFXIV is a virus!
 
