@@ -13,6 +13,19 @@ Part 3:    Transpose   0, recommended: Harp
 Part 4:    Transpose -12, recommended: Steel Guitar
 
 
+# Prelude.mid
+
+Song name: プレリュード (Relay mix)
+           Prelude (Relay mix)
+Original:  植松伸夫 (Nobuo Uematsu)
+Remix:     Star Brilliant
+Copyright: Square Enix Co. Ltd., all rights reserved.
+
+Part 1:    Transpose +12, recommended: Grand Piano
+Part 2:    Transpose   0, recommended: Harp
+Part 3:    Transpose -12, recommended: Steel Guitar
+
+
 # Saltswept
 
 Song name: 潮風香る街 (remix)
