@@ -38,7 +38,7 @@ Part 2:    Transpose   0, recommended: Harp
 Part 3:    Transpose -12, recommended: Steel Guitar
 
 
-# Saltswept
+# Saltswept.mid
 
 Song name: 潮風香る街 (remix)
            Saltswept (remix)
