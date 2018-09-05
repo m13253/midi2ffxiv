@@ -27,6 +27,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/beevik/ntp"
@@ -71,6 +72,7 @@ func (app *application) syncTime(ntpServer string) error {
 	app.NtpMaxDeviation = rootDistance
 	app.NtpLastSync = time.Now()
 	app.ntpMutex.Unlock()
+	log.Println("Time synchronized.")
 	return nil
 }
 
