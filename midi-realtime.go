@@ -124,11 +124,9 @@ func (app *application) openMidiOutDevice(midiOutDevice int) error {
 	app.MidiOutDevice = midiOutDevice
 	app.hMidiOut = hMidiOut
 
-	err = app.setMidiOutBank(app.MidiOutBank)
-	if err != nil {
-		return err
-	}
-	return app.setMidiOutPatch(app.MidiOutPatch)
+	app.setMidiOutBank(app.MidiOutBank)
+	app.setMidiOutPatch(app.MidiOutPatch)
+	return nil
 }
 
 func (app *application) closeMidiInDevice() {
@@ -144,39 +142,35 @@ func (app *application) closeMidiInDevice() {
 }
 
 func (app *application) closeMidiOutDevice() {
+	_ = app.sendMidiOutMessage(&midiRealtimeEvent{
+		Message: []byte{0xb0, 0x7b, 0x00},
+	})
 	app.MidiOutDevice = -1
 	if app.hMidiOut == 0 {
 		return
 	}
-	_ = app.sendAllNoteOff()
-	_ = winmm.MidiOutClose(app.hMidiOut)
+	hMidiOut := app.hMidiOut
 	app.hMidiOut = 0
+	time.AfterFunc(1*time.Second, func() {
+		_ = winmm.MidiOutClose(hMidiOut)
+	})
 }
 
-func (app *application) setMidiOutBank(midiOutBank uint16) error {
-	if app.MidiOutDevice != -1 {
-		err := winmm.MidiOutShortMsg(app.hMidiOut, 0x0000b0|((uint32(midiOutBank)<<23)&0x7f0000))
-		if err != nil {
-			return err
-		}
-		err = winmm.MidiOutShortMsg(app.hMidiOut, 0x0020b0|((uint32(midiOutBank)<<16)&0x7f0000))
-		if err != nil {
-			return err
-		}
+func (app *application) setMidiOutBank(midiOutBank uint16) {
+	app.pendingNotes <- &midiRealtimeEvent{
+		Message: []byte{0xb0, 0x00, uint8(midiOutBank>>15) & 0x7f},
+	}
+	app.pendingNotes <- &midiRealtimeEvent{
+		Message: []byte{0xb0, 0x20, uint8(midiOutBank) & 0x7f},
 	}
 	app.MidiOutBank = midiOutBank
-	return nil
 }
 
-func (app *application) setMidiOutPatch(midiOutPatch uint8) error {
-	if app.MidiOutDevice != -1 {
-		err := winmm.MidiOutShortMsg(app.hMidiOut, 0x00c0|((uint32(midiOutPatch)<<8)&0x7f00))
-		if err != nil {
-			return err
-		}
+func (app *application) setMidiOutPatch(midiOutPatch uint8) {
+	app.pendingNotes <- &midiRealtimeEvent{
+		Message: []byte{0xc0, midiOutPatch & 0x7f},
 	}
 	app.MidiOutPatch = midiOutPatch
-	return nil
 }
 
 func (app *application) setMidiOutTranspose(midiOutTranspose int) {
@@ -184,39 +178,48 @@ func (app *application) setMidiOutTranspose(midiOutTranspose int) {
 }
 
 func (app *application) onMidiInEvent(event []byte) {
-	channel := event[0] & 0xf
+	app.addMidiInEvent(&midiRealtimeEvent{
+		Time:    time.Now(),
+		Message: event,
+	})
+}
+
+func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
+	channel := event.Message[0] & 0xf
 	// Ignore percussion channel
 	if channel == 9 {
 		return
 	}
 	// Force channel 1
-	event[0] = event[0] & 0xf0
-	switch event[0] {
+	filteredMessage := make([]byte, len(event.Message))
+	copy(filteredMessage, event.Message)
+	filteredMessage[0] &= 0xf0
+	switch filteredMessage[0] {
 	// Note off
 	case 0x80:
-		if app.Keybinding[int(event[1])].VirtualKeyCode == 0 {
+		if app.Keybinding[int(filteredMessage[1])].VirtualKeyCode == 0 {
 			return
 		}
 	// Note on
 	case 0x90:
-		if app.Keybinding[int(event[1])].VirtualKeyCode == 0 {
+		if app.Keybinding[int(filteredMessage[1])].VirtualKeyCode == 0 {
 			return
 		}
-		if event[2] < app.MinTriggerVelocity {
-			event[0] = 0x80
+		if filteredMessage[2] < app.MinTriggerVelocity {
+			filteredMessage[0] = 0x80
 		}
 	// After touch
 	case 0xa0:
-		if app.Keybinding[int(event[1])].VirtualKeyCode == 0 {
+		if app.Keybinding[int(filteredMessage[1])].VirtualKeyCode == 0 {
 			return
 		}
-		if event[2] == 0 {
-			event[0] = 0x80
+		if filteredMessage[2] == 0 {
+			filteredMessage[0] = 0x80
 		}
 	// Control change
 	case 0xb0:
 		// Block bank select
-		if event[1] == 0x00 || event[1] == 0x20 {
+		if filteredMessage[1] == 0x00 || filteredMessage[1] == 0x20 {
 			return
 		}
 	// Program change
@@ -224,7 +227,7 @@ func (app *application) onMidiInEvent(event []byte) {
 		return
 	// Channel pressure
 	case 0xd0:
-		event = event[:2]
+		filteredMessage = filteredMessage[:2]
 	// Pitch bend
 	case 0xe0:
 		return
@@ -232,8 +235,8 @@ func (app *application) onMidiInEvent(event []byte) {
 	case 0xf0:
 	}
 	app.pendingNotes <- &midiRealtimeEvent{
-		Time:    time.Now(),
-		Message: event,
+		Time:    event.Time,
+		Message: filteredMessage,
 	}
 }
 
@@ -271,7 +274,10 @@ func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
 		defer func() {
 			for {
 				err := winmm.MidiOutUnprepareHeader(app.hMidiOut, midiHeader)
-				if uint32(err.(winmm.MidiOutError)) != winmm.MIDIERR_STILLPLAYING {
+				if err == nil {
+					break
+				}
+				if midiOutError, ok := err.(winmm.MidiOutError); !ok || uint32(midiOutError) != winmm.MIDIERR_STILLPLAYING {
 					break
 				}
 				runtime.Gosched()
@@ -282,17 +288,10 @@ func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
 	return err
 }
 
-func (app *application) sendAllNoteOff() error {
-	if app.MidiOutDevice == -1 {
-		return nil
+func (app *application) sendAllNoteOff() {
+	app.pendingNotes <- &midiRealtimeEvent{
+		Message: []byte{0xb0, 0x7b, 0x00},
 	}
-	for i := uint32(0x007bb0); i <= 0x007bbf; i++ {
-		err := winmm.MidiOutShortMsg(app.hMidiOut, i)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func getMidiInDevName(uDeviceID uintptr) (string, error) {
