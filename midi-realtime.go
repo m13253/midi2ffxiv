@@ -203,7 +203,7 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 		if event.AlreadyTransposed {
 			noteName -= app.MidiOutTranspose
 		}
-		if noteName >= 0x00 && noteName <= 0x7f && app.Keybinding[noteName].VirtualKeyCode == 0 {
+		if noteName < 0x00 || noteName > 0x7f || app.Keybinding[noteName].VirtualKeyCode == 0 {
 			return
 		}
 	// Note on
@@ -212,7 +212,7 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 		if event.AlreadyTransposed {
 			noteName -= app.MidiOutTranspose
 		}
-		if noteName >= 0x00 && noteName <= 0x7f && app.Keybinding[noteName].VirtualKeyCode == 0 {
+		if noteName < 0x00 || noteName > 0x7f || app.Keybinding[noteName].VirtualKeyCode == 0 {
 			return
 		}
 		if filteredMessage[2] < app.MinTriggerVelocity {
@@ -224,7 +224,7 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 		if event.AlreadyTransposed {
 			noteName -= app.MidiOutTranspose
 		}
-		if noteName >= 0x00 && noteName <= 0x7f && app.Keybinding[noteName].VirtualKeyCode == 0 {
+		if noteName < 0x00 || noteName > 0x7f || app.Keybinding[noteName].VirtualKeyCode == 0 {
 			return
 		}
 		if filteredMessage[2] == 0 {
