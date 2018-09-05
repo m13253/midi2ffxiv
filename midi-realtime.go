@@ -213,6 +213,7 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 	// Note on
 	case 0x90:
 		noteName = int(filteredMessage[1])
+		fmt.Printf("Note: %d\n", noteName)
 		if event.AlreadyTransposed {
 			noteName -= app.MidiOutTranspose
 			if noteName < 0x00 || noteName > 0x7f {
@@ -220,6 +221,7 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 			}
 			filteredMessage[1] = uint8(noteName)
 		}
+		fmt.Printf("Transposed: %d\n", noteName)
 		if app.Keybinding[noteName].VirtualKeyCode == 0 {
 			return
 		}

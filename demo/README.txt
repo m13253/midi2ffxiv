@@ -7,7 +7,8 @@ Remix:     Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
 
 Part 1:    Transpose +12, recommended: Flute
-Part 2:    Transpose +12, recommended: Oboe
+Part 2:    Transpose +12, recommended: Oboe (identical to Part 1)
+Part 3:    Transpose   0, recommended: Clarinet
 Part 3:    Transpose   0, recommended: Harp
 Part 4:    Transpose -12, recommended: Steel Guitar
 
@@ -20,6 +21,6 @@ Original:  祖堅正慶 (Masayoshi Soken)
 Remix:     Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
 
-Part 1:    Transpose 0, recommended: Harp
-Part 2:    Transpose 0, recommended: Harp
+Part 1:    Transpose +12, recommended: Oboe
+Part 2:    Transpose   0, recommended: Clarinet
 Part 3:    Transpose -12, recommended: Steel Guitar
