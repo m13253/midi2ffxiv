@@ -35,8 +35,9 @@ import (
 )
 
 type midiRealtimeEvent struct {
-	Time    time.Time
-	Message []byte
+	Time              time.Time
+	Message           []byte
+	AlreadyTransposed bool
 }
 
 func (app *application) processMidiRealtime() {
@@ -194,15 +195,24 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 	filteredMessage := make([]byte, len(event.Message))
 	copy(filteredMessage, event.Message)
 	filteredMessage[0] &= 0xf0
+	var noteName int
 	switch filteredMessage[0] {
 	// Note off
 	case 0x80:
-		if app.Keybinding[int(filteredMessage[1])].VirtualKeyCode == 0 {
+		noteName = int(filteredMessage[1])
+		if event.AlreadyTransposed {
+			noteName -= app.MidiOutTranspose
+		}
+		if noteName >= 0x00 && noteName <= 0x7f && app.Keybinding[noteName].VirtualKeyCode == 0 {
 			return
 		}
 	// Note on
 	case 0x90:
-		if app.Keybinding[int(filteredMessage[1])].VirtualKeyCode == 0 {
+		noteName = int(filteredMessage[1])
+		if event.AlreadyTransposed {
+			noteName -= app.MidiOutTranspose
+		}
+		if noteName >= 0x00 && noteName <= 0x7f && app.Keybinding[noteName].VirtualKeyCode == 0 {
 			return
 		}
 		if filteredMessage[2] < app.MinTriggerVelocity {
@@ -210,7 +220,11 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 		}
 	// After touch
 	case 0xa0:
-		if app.Keybinding[int(filteredMessage[1])].VirtualKeyCode == 0 {
+		noteName = int(filteredMessage[1])
+		if event.AlreadyTransposed {
+			noteName -= app.MidiOutTranspose
+		}
+		if noteName >= 0x00 && noteName <= 0x7f && app.Keybinding[noteName].VirtualKeyCode == 0 {
 			return
 		}
 		if filteredMessage[2] == 0 {
@@ -252,7 +266,10 @@ func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
 		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(event.Message[1])<<8))
 	case 3:
 		if event.Message[0] == 0x80 || event.Message[0] == 0x90 || event.Message[0] == 0xa0 {
-			noteName := int(event.Message[1]) + app.MidiOutTranspose
+			noteName := int(event.Message[1])
+			if !event.AlreadyTransposed {
+				noteName += app.MidiOutTranspose
+			}
 			if noteName >= 0x00 || noteName <= 0x7f {
 				err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(noteName)<<8)|(uint32(event.Message[2])<<16))
 			}

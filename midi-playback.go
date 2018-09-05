@@ -236,9 +236,14 @@ func (app *application) playNextMidiEvent() bool {
 		app.midiFileBuffer.nextEventTimer.Reset(nextNoteProgress - playbackProgress)
 		return false
 	}
-	app.addMidiInEvent(&midiRealtimeEvent{
-		Time:    now.Add(-playbackProgress).Add(nextNoteProgress),
-		Message: thisTrack[index].Message,
+	event := &midiRealtimeEvent{
+		Time:              now.Add(-playbackProgress).Add(nextNoteProgress),
+		Message:           thisTrack[index].Message,
+		AlreadyTransposed: true,
+	}
+	_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+		app.addMidiInEvent(event)
+		return nil, nil
 	})
 	app.midiFileBuffer.nextEventIndex = index + 1
 	return true

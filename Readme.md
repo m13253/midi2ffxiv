@@ -1,7 +1,7 @@
 MIDI2FFXIV
 ==========
 
-Convert MIDI to bard performance of Final Fantasy XIV: Stormblood
+Convert MIDI to bard performance of _Final Fantasy XIV: Stormblood_
 
 Usage
 -----
@@ -110,3 +110,5 @@ License
 This program is licensed under MIT License.
 
 For more information, please refer to [LICENSE](LICENSE).
+
+Demo songs in [demo](demo) directory may have separate licensing information, please refer to [demo/COPYRIGHT.txt](demo/COPYRIGHT.txt).
