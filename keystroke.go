@@ -48,13 +48,16 @@ type keystrokeStatus struct {
 	ctrl                keystroke
 	alt                 keystroke
 	shift               keystroke
-	lastNoteOn          *midiRealtimeEvent
+	lastNote            uint8
+	lastNoteTime        time.Time
+	lastModifierTime    time.Time
 	clearModifiersTimer *time.Timer
 }
 
 func (app *application) processKeystrokes() {
 	app.keyStatus = &keystrokeStatus{
 		clearModifiersTimer: time.NewTimer(app.IdleDuration),
+		lastNote:            0xff,
 	}
 	for {
 		select {
@@ -71,7 +74,7 @@ func (app *application) processKeystrokes() {
 	}
 }
 
-func (app *application) produceKeystroke(event *midiRealtimeEvent) {
+func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan struct{}) {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
 	now := time.Now()
 	if event.Message[0] == 0x90 {
@@ -117,6 +120,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 				app.keyStatus.ctrl.LastChange = now
 				app.keyStatus.ctrl.LastRelease = now
 			}
+			app.keyStatus.lastModifierTime = now
 		}
 		if app.keyStatus.alt.Pressed != keybind.Alt {
 			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
@@ -142,6 +146,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 				app.keyStatus.alt.LastChange = now
 				app.keyStatus.alt.LastRelease = now
 			}
+			app.keyStatus.lastModifierTime = now
 		}
 		if app.keyStatus.shift.Pressed != keybind.Shift {
 			dwFlags := user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP
@@ -167,25 +172,44 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 				app.keyStatus.shift.LastChange = now
 				app.keyStatus.shift.LastRelease = now
 			}
+			app.keyStatus.lastModifierTime = now
 		}
-		if !event.Realtime || now.Sub(app.keyStatus.ctrl.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.alt.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.shift.LastChange) < app.ModifierCooldown || now.Sub(app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease) < app.ModifierCooldown {
-			for i := range pInputs {
-				_, err := user32.SendInput(pInputs[i : i+1])
+		if !app.keyStatus.lastNoteTime.IsZero() && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNote) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteTime) < app.SkillCooldown {
+			waitTime := app.keyStatus.lastNoteTime.Add(app.SkillCooldown).Sub(now)
+			log.Printf("Skill cooldown sleep %s.\n", waitTime)
+			time.Sleep(waitTime)
+			now = time.Now()
+		} else if !event.Realtime {
+			if len(pInputs) != 0 {
+				_, err := user32.SendInput(pInputs)
 				if err != nil {
 					fmt.Println("Error: ", err)
 				}
+				app.printPressedKeys()
+				pInputs = []user32.INPUT_KEYBDINPUT{}
 			}
-			app.printPressedKeys()
-			pInputs = pInputs[:0]
-			time.Sleep(app.ModifierCooldown)
+			waitTime := app.ModifierCooldown
+			log.Printf("Modifier cooldown (playback) %s.\n", waitTime)
+			time.Sleep(waitTime)
 			now = time.Now()
 		}
-		if app.keyStatus.lastNoteOn != nil && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNoteOn.Message[1]) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteOn.Time) < app.SkillCooldown {
-			time.Sleep(app.keyStatus.lastNoteOn.Time.Add(app.SkillCooldown).Sub(now))
+		close(done)
+		if event.Realtime && !app.keyStatus.lastModifierTime.IsZero() && now.Sub(app.keyStatus.lastModifierTime) < app.ModifierCooldown {
+			if len(pInputs) != 0 {
+				_, err := user32.SendInput(pInputs)
+				if err != nil {
+					fmt.Println("Error: ", err)
+				}
+				app.printPressedKeys()
+				pInputs = []user32.INPUT_KEYBDINPUT{}
+			}
+			waitTime := app.keyStatus.lastModifierTime.Add(app.ModifierCooldown).Sub(now)
+			log.Printf("Modifier cooldown (realtime) %s.\n", waitTime)
+			time.Sleep(waitTime)
 			now = time.Now()
 		}
-		event.Time = now
-		app.keyStatus.lastNoteOn = event
+		app.keyStatus.lastNote = event.Message[1]
+		app.keyStatus.lastNoteTime = now
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,
 			Ki: user32.KEYBDINPUT{
@@ -201,6 +225,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastPress = now
 		app.keyStatus.pressedKeysCount++
 	} else if event.Message[0] == 0x80 {
+		close(done)
 		keybind := app.Keybinding[int(event.Message[1])]
 		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == event.Message[1] {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
@@ -220,13 +245,13 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 		if app.keyStatus.pressedKeysCount == 0 {
 			app.keyStatus.clearModifiersTimer.Reset(app.IdleDuration)
 		}
+	} else {
+		close(done)
 	}
 	if len(pInputs) != 0 {
-		for i := range pInputs {
-			_, err := user32.SendInput(pInputs[i : i+1])
-			if err != nil {
-				fmt.Println("Error: ", err)
-			}
+		_, err := user32.SendInput(pInputs)
+		if err != nil {
+			fmt.Println("Error: ", err)
 		}
 		app.printPressedKeys()
 	}
@@ -249,6 +274,7 @@ func (app *application) clearModifiers() {
 		app.keyStatus.ctrl.Pressed = false
 		app.keyStatus.ctrl.LastChange = now
 		app.keyStatus.ctrl.LastRelease = now
+		app.keyStatus.lastModifierTime = now
 	}
 	if app.keyStatus.alt.Pressed {
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
@@ -264,6 +290,7 @@ func (app *application) clearModifiers() {
 		app.keyStatus.alt.Pressed = false
 		app.keyStatus.alt.LastChange = now
 		app.keyStatus.alt.LastRelease = now
+		app.keyStatus.lastModifierTime = now
 	}
 	if app.keyStatus.shift.Pressed {
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
@@ -279,13 +306,12 @@ func (app *application) clearModifiers() {
 		app.keyStatus.shift.Pressed = false
 		app.keyStatus.shift.LastChange = now
 		app.keyStatus.shift.LastRelease = now
+		app.keyStatus.lastModifierTime = now
 	}
 	if len(pInputs) != 0 {
-		for i := range pInputs {
-			_, err := user32.SendInput(pInputs[i : i+1])
-			if err != nil {
-				fmt.Println("Error: ", err)
-			}
+		_, err := user32.SendInput(pInputs)
+		if err != nil {
+			fmt.Println("Error: ", err)
 		}
 		app.printPressedKeys()
 	}

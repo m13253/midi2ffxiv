@@ -55,7 +55,7 @@ var defaultPreset = preset{
 	IdleDuration:       1 * time.Second,
 	MaxNoteDelay:       300 * time.Millisecond,
 	SkillCooldown:      140 * time.Millisecond,
-	ModifierCooldown:   1*time.Second/30 + 1,
+	ModifierCooldown:   50 * time.Millisecond,
 	NtpSyncTimeout:     5 * time.Second,
 	NtpCooldown:        10 * time.Second,
 	MinTriggerVelocity: 16,

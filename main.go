@@ -166,8 +166,10 @@ func (app *application) processMidiQueue() {
 		case nextNote := <-app.pendingNotes:
 			now := time.Now()
 			nextNote = &midiRealtimeEvent{
-				Time:    nextNote.Time,
-				Message: nextNote.Message,
+				Time:              nextNote.Time,
+				Message:           nextNote.Message,
+				Realtime:          nextNote.Realtime,
+				AlreadyTransposed: nextNote.AlreadyTransposed,
 			}
 
 			if (nextNote.Message[0] == 0x90 || nextNote.Message[0] == 0xa0) && !nextNote.Time.IsZero() && now.Sub(nextNote.Time) > app.MaxNoteDelay {
@@ -175,10 +177,12 @@ func (app *application) processMidiQueue() {
 			}
 
 			if nextNote.Message[0] == 0x80 || nextNote.Message[0] == 0x90 {
-				_, _ = app.KeystrokeGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
-					app.produceKeystroke(nextNote)
+				done := make(chan struct{}, 1)
+				_ = app.KeystrokeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+					app.produceKeystroke(nextNote, done)
 					return nil, nil
 				})
+				<-done
 			}
 
 			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
