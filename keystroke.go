@@ -77,7 +77,28 @@ func (app *application) processKeystrokes() {
 func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan struct{}) {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
 	now := time.Now()
-	if event.Message[0] == 0x90 {
+	if event.Message[0] == 0x80 {
+		close(done)
+		keybind := app.Keybinding[int(event.Message[1])]
+		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == event.Message[1] {
+			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
+				Type: user32.INPUT_KEYBOARD,
+				Ki: user32.KEYBDINPUT{
+					WVk:         0,
+					WScan:       uint16(user32.MapVirtualKey(uint32(keybind.VirtualKeyCode), user32.MAPVK_VK_TO_VSC)),
+					DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
+					Time:        0,
+					DwExtraInfo: 0,
+				},
+			})
+			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = false
+			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease = now
+			app.keyStatus.pressedKeysCount--
+		}
+		if app.keyStatus.pressedKeysCount == 0 {
+			app.keyStatus.clearModifiersTimer.Reset(app.IdleDuration)
+		}
+	} else if event.Message[0] == 0x90 {
 		app.keyStatus.clearModifiersTimer.Stop()
 		keybind := app.Keybinding[int(event.Message[1])]
 		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed {
@@ -222,28 +243,31 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 		})
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = true
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote = event.Message[1]
+		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastChange = now
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastPress = now
 		app.keyStatus.pressedKeysCount++
-	} else if event.Message[0] == 0x80 {
+	} else if event.Message[0] == 0xb0 {
 		close(done)
-		keybind := app.Keybinding[int(event.Message[1])]
-		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == event.Message[1] {
-			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
-				Type: user32.INPUT_KEYBOARD,
-				Ki: user32.KEYBDINPUT{
-					WVk:         0,
-					WScan:       uint16(user32.MapVirtualKey(uint32(keybind.VirtualKeyCode), user32.MAPVK_VK_TO_VSC)),
-					DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
-					Time:        0,
-					DwExtraInfo: 0,
-				},
-			})
-			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = false
-			app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastRelease = now
-			app.keyStatus.pressedKeysCount--
-		}
-		if app.keyStatus.pressedKeysCount == 0 {
-			app.keyStatus.clearModifiersTimer.Reset(app.IdleDuration)
+		if len(event.Message) > 1 && event.Message[1] == 0x7b {
+			for i := 0; i < 256; i++ {
+				if app.keyStatus.pressedKeys[i].Pressed {
+					pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
+						Type: user32.INPUT_KEYBOARD,
+						Ki: user32.KEYBDINPUT{
+							WVk:         0,
+							WScan:       uint16(user32.MapVirtualKey(uint32(i), user32.MAPVK_VK_TO_VSC)),
+							DwFlags:     user32.KEYEVENTF_SCANCODE | user32.KEYEVENTF_KEYUP,
+							Time:        0,
+							DwExtraInfo: 0,
+						},
+					})
+					app.keyStatus.pressedKeys[i].Pressed = false
+					app.keyStatus.pressedKeys[i].LastChange = now
+					app.keyStatus.pressedKeys[i].LastRelease = now
+					app.keyStatus.pressedKeysCount--
+				}
+			}
+			app.keyStatus.clearModifiersTimer.Reset(0)
 		}
 	} else {
 		close(done)

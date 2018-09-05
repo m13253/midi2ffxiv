@@ -177,14 +177,12 @@ func (app *application) processMidiQueue() {
 				continue
 			}
 
-			if nextNote.Message[0] == 0x80 || nextNote.Message[0] == 0x90 {
-				done := make(chan struct{}, 1)
-				_ = app.KeystrokeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
-					app.produceKeystroke(nextNote, done)
-					return nil, nil
-				})
-				<-done
-			}
+			done := make(chan struct{}, 1)
+			_ = app.KeystrokeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+				app.produceKeystroke(nextNote, done)
+				return nil, nil
+			})
+			<-done
 
 			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
 				err := app.sendMidiOutMessage(nextNote)
