@@ -222,7 +222,7 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 			filteredMessage[1] = uint8(noteName)
 		}
 		if app.Keybinding[noteName].VirtualKeyCode == 0 {
-			log.Printf("Pitch %d outside range.\n", filteredMessage[noteName])
+			log.Printf("Pitch %d outside range.\n", noteName)
 			return
 		}
 		if filteredMessage[2] < app.MinTriggerVelocity {
