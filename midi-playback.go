@@ -28,7 +28,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"time"
@@ -177,8 +176,6 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 				Message: message,
 			})
 		}
-
-		fmt.Printf("Track #%d, %+v\n", trackID, tempoTable)
 
 		midiTracks[trackID] = track
 	}
