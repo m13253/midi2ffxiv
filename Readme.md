@@ -98,7 +98,7 @@ FAQ
    go build
    ```
 
-5. My anti-virus says MIDI2FFXIV is a virus!
+5. **My anti-virus says MIDI2FFXIV is a virus!**
 
    Mine also does.
 
