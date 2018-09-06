@@ -1,7 +1,7 @@
 MIDI2FFXIV
 ==========
 
-Convert MIDI to bard performance of _Final Fantasy XIV: Stormblood_, features multiplayer sync
+Convert MIDI to bard performance of _Final Fantasy XIV: Stormblood_, featuring multiplayer sync
 
 Usage
 -----
