@@ -100,9 +100,9 @@ func (app *application) startWebServer() error {
 
 	h.server.Addr = availableAddr.String()
 	if len(availableAddr.IP) == 0 || availableAddr.IP.IsUnspecified() {
-		fmt.Printf("Please open the control panel at http://localhost:%d\n\n", availableAddr.Port)
+		fmt.Printf("\nPlease open the control panel at http://localhost:%d\n\n", availableAddr.Port)
 	} else {
-		fmt.Printf("Please open the control panel at http://%s\n\n", h.server.Addr)
+		fmt.Printf("\nPlease open the control panel at http://%s\n\n", h.server.Addr)
 	}
 	if h.app.WebUsername != "" || h.app.WebPassword != "" {
 		fmt.Printf("Username: %s\nPassword: %s\n\n", h.app.WebUsername, h.app.WebPassword)
@@ -149,13 +149,13 @@ func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		value, err := strconv.ParseInt(string(body), 0, 32)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -163,7 +163,7 @@ func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {
 			return nil, h.app.openMidiInDevice(int(value))
 		})
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 503)
 			return
 		}
@@ -185,13 +185,13 @@ func (h *webHandlers) midiOutputDevice(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		value, err := strconv.ParseInt(string(body), 0, 32)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -199,7 +199,7 @@ func (h *webHandlers) midiOutputDevice(w http.ResponseWriter, r *http.Request) {
 			return nil, h.app.openMidiOutDevice(int(value))
 		})
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 503)
 			return
 		}
@@ -221,13 +221,13 @@ func (h *webHandlers) midiOutputBank(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		value, err := strconv.ParseUint(string(body), 0, 16)
+		value, err := strconv.ParseUint(string(body), 0, 14)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -251,13 +251,13 @@ func (h *webHandlers) midiOutputPatch(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
-		value, err := strconv.ParseUint(string(body), 0, 8)
+		value, err := strconv.ParseUint(string(body), 0, 7)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -281,13 +281,13 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		value, err := strconv.ParseInt(string(body), 0, 8)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -296,7 +296,7 @@ func (h *webHandlers) midiOutputTranspose(w http.ResponseWriter, r *http.Request
 			return nil, nil
 		})
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 503)
 			return
 		}
@@ -331,7 +331,7 @@ func (h *webHandlers) ntpSyncServer(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -341,7 +341,7 @@ func (h *webHandlers) ntpSyncServer(w http.ResponseWriter, r *http.Request) {
 			return nil, h.app.syncTime(ntpServer)
 		})
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 503)
 			return
 		}
@@ -361,7 +361,7 @@ func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
 			return nil, h.app.setMidiPlaybackFile(r.Body)
 		})
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 503)
 			return
 		}
@@ -377,13 +377,13 @@ func (h *webHandlers) midiPlaybackTrack(w http.ResponseWriter, r *http.Request) 
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		value, err := strconv.ParseUint(string(body), 0, 16)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -407,13 +407,13 @@ func (h *webHandlers) midiPlaybackOffset(w http.ResponseWriter, r *http.Request)
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		value, err := strconv.ParseFloat(string(body), 64)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -444,13 +444,13 @@ func (h *webHandlers) scheduler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
 		err = json.Unmarshal(body, &result)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error: ", err)
 			http.Error(w, err.Error(), 400)
 			return
 		}
@@ -482,7 +482,7 @@ func (h *webHandlers) scheduler(w http.ResponseWriter, r *http.Request) {
 func writeJSON(w http.ResponseWriter, v interface{}) {
 	stream, err := json.Marshal(v)
 	if err != nil {
-		log.Println(err)
+		log.Println("Error: ", err)
 		http.Error(w, "Internal Server Error", 500)
 		return
 	}

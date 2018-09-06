@@ -198,33 +198,34 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 	filteredMessage := make([]byte, len(event.Message))
 	copy(filteredMessage, event.Message)
 	filteredMessage[0] &= 0xf0
-	var noteName int
+	var note int
 	switch filteredMessage[0] {
 	// Note off
 	case 0x80:
-		noteName = int(filteredMessage[1])
+		note = int(filteredMessage[1])
 		if event.AlreadyTransposed {
-			noteName -= app.MidiOutTranspose
-			if noteName < 0x00 || noteName > 0x7f {
+			note -= app.MidiOutTranspose
+			if note < 0x00 || note > 0x7f {
 				return
 			}
-			filteredMessage[1] = uint8(noteName)
+			filteredMessage[1] = uint8(note)
 		}
-		if app.Keybinding[noteName].VirtualKeyCode == 0 {
+		if keybind := &app.Keybinding[note]; keybind.VirtualKeyCode == 0 {
 			return
 		}
 	// Note on
 	case 0x90:
-		noteName = int(filteredMessage[1])
+		note = int(filteredMessage[1])
 		if event.AlreadyTransposed {
-			noteName -= app.MidiOutTranspose
-			if noteName < 0x00 || noteName > 0x7f {
+			note -= app.MidiOutTranspose
+			if note < 0x00 || note > 0x7f {
 				return
 			}
-			filteredMessage[1] = uint8(noteName)
+			filteredMessage[1] = uint8(note)
 		}
-		if app.Keybinding[noteName].VirtualKeyCode == 0 {
-			log.Printf("Pitch %d outside range.\n", noteName)
+		if keybind := &app.Keybinding[note]; keybind.VirtualKeyCode == 0 {
+			noteName, _ := noteIndexToName(uint8(note))
+			log.Printf("Note %s out of range.\n", noteName)
 			return
 		}
 		if filteredMessage[2] < app.MinTriggerVelocity {
@@ -232,15 +233,15 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 		}
 	// After touch
 	case 0xa0:
-		noteName = int(filteredMessage[1])
+		note = int(filteredMessage[1])
 		if event.AlreadyTransposed {
-			noteName -= app.MidiOutTranspose
-			if noteName < 0x00 || noteName > 0x7f {
+			note -= app.MidiOutTranspose
+			if note < 0x00 || note > 0x7f {
 				return
 			}
-			filteredMessage[1] = uint8(noteName)
+			filteredMessage[1] = uint8(note)
 		}
-		if app.Keybinding[noteName].VirtualKeyCode == 0 {
+		if keybind := &app.Keybinding[note]; keybind.VirtualKeyCode == 0 {
 			return
 		}
 		if filteredMessage[2] == 0 {
@@ -283,9 +284,9 @@ func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
 		err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(event.Message[1])<<8))
 	case 3:
 		if event.Message[0] == 0x80 || event.Message[0] == 0x90 || event.Message[0] == 0xa0 {
-			noteName := int(event.Message[1]) + app.MidiOutTranspose
-			if noteName >= 0x00 || noteName <= 0x7f {
-				err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(noteName)<<8)|(uint32(event.Message[2])<<16))
+			note := int(event.Message[1]) + app.MidiOutTranspose
+			if note >= 0x00 || note <= 0x7f {
+				err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(note)<<8)|(uint32(event.Message[2])<<16))
 			}
 		} else {
 			err = winmm.MidiOutShortMsg(app.hMidiOut, uint32(event.Message[0])|(uint32(event.Message[1])<<8)|(uint32(event.Message[2])<<16))

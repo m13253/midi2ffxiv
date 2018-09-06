@@ -79,7 +79,10 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 	now := time.Now()
 	if event.Message[0] == 0x80 {
 		close(done)
-		keybind := app.Keybinding[int(event.Message[1])]
+		keybind := &app.Keybinding[event.Message[1]]
+		if keybind.VirtualKeyCode == 0 {
+			return
+		}
 		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == event.Message[1] {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 				Type: user32.INPUT_KEYBOARD,
@@ -100,7 +103,11 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 		}
 	} else if event.Message[0] == 0x90 {
 		app.keyStatus.clearModifiersTimer.Stop()
-		keybind := app.Keybinding[int(event.Message[1])]
+		keybind := &app.Keybinding[event.Message[1]]
+		if keybind.VirtualKeyCode == 0 {
+			close(done)
+			return
+		}
 		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 				Type: user32.INPUT_KEYBOARD,

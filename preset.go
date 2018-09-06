@@ -30,13 +30,15 @@ import (
 )
 
 type keybindingPreset struct {
-	VirtualKeyCode uint8
 	Ctrl           bool
 	Alt            bool
 	Shift          bool
+	VirtualKeyCode uint8
 }
 
 type preset struct {
+	ConfigFile string
+
 	IdleDuration       time.Duration
 	MaxNoteDelay       time.Duration
 	SkillCooldown      time.Duration
@@ -52,6 +54,7 @@ type preset struct {
 }
 
 var defaultPreset = preset{
+	ConfigFile:         "midi2ffxiv.conf",
 	IdleDuration:       1 * time.Second,
 	MaxNoteDelay:       300 * time.Millisecond,
 	SkillCooldown:      140 * time.Millisecond,
@@ -60,46 +63,46 @@ var defaultPreset = preset{
 	NtpCooldown:        10 * time.Second,
 	MinTriggerVelocity: 16,
 	Keybinding: [128]keybindingPreset{
-		0x30: {'Q', true, false, false},
-		0x31: {'2', true, false, false},
-		0x32: {'W', true, false, false},
-		0x33: {'3', true, false, false},
-		0x34: {'E', true, false, false},
-		0x35: {'R', true, false, false},
-		0x36: {'5', true, false, false},
-		0x37: {'T', true, false, false},
-		0x38: {'6', true, false, false},
-		0x39: {'Y', true, false, false},
-		0x3a: {'7', true, false, false},
-		0x3b: {'U', true, false, false},
+		0x30: {true, false, false, 'Q'},
+		0x31: {true, false, false, '2'},
+		0x32: {true, false, false, 'W'},
+		0x33: {true, false, false, '3'},
+		0x34: {true, false, false, 'E'},
+		0x35: {true, false, false, 'R'},
+		0x36: {true, false, false, '5'},
+		0x37: {true, false, false, 'T'},
+		0x38: {true, false, false, '6'},
+		0x39: {true, false, false, 'Y'},
+		0x3a: {true, false, false, '7'},
+		0x3b: {true, false, false, 'U'},
 
-		0x3c: {'Q', false, false, false},
-		0x3d: {'2', false, false, false},
-		0x3e: {'W', false, false, false},
-		0x3f: {'3', false, false, false},
-		0x40: {'E', false, false, false},
-		0x41: {'R', false, false, false},
-		0x42: {'5', false, false, false},
-		0x43: {'T', false, false, false},
-		0x44: {'6', false, false, false},
-		0x45: {'Y', false, false, false},
-		0x46: {'7', false, false, false},
-		0x47: {'U', false, false, false},
+		0x3c: {false, false, false, 'Q'},
+		0x3d: {false, false, false, '2'},
+		0x3e: {false, false, false, 'W'},
+		0x3f: {false, false, false, '3'},
+		0x40: {false, false, false, 'E'},
+		0x41: {false, false, false, 'R'},
+		0x42: {false, false, false, '5'},
+		0x43: {false, false, false, 'T'},
+		0x44: {false, false, false, '6'},
+		0x45: {false, false, false, 'Y'},
+		0x46: {false, false, false, '7'},
+		0x47: {false, false, false, 'U'},
 
-		0x48: {'Q', false, false, true},
-		0x49: {'2', false, false, true},
-		0x4a: {'W', false, false, true},
-		0x4b: {'3', false, false, true},
-		0x4c: {'E', false, false, true},
-		0x4d: {'R', false, false, true},
-		0x4e: {'5', false, false, true},
-		0x4f: {'T', false, false, true},
-		0x50: {'6', false, false, true},
-		0x51: {'Y', false, false, true},
-		0x52: {'7', false, false, true},
-		0x53: {'U', false, false, true},
+		0x48: {false, false, true, 'Q'},
+		0x49: {false, false, true, '2'},
+		0x4a: {false, false, true, 'W'},
+		0x4b: {false, false, true, '3'},
+		0x4c: {false, false, true, 'E'},
+		0x4d: {false, false, true, 'R'},
+		0x4e: {false, false, true, '5'},
+		0x4f: {false, false, true, 'T'},
+		0x50: {false, false, true, '6'},
+		0x51: {false, false, true, 'Y'},
+		0x52: {false, false, true, '7'},
+		0x53: {false, false, true, 'U'},
 
-		0x54: {'I', false, false, true},
+		0x54: {false, false, true, 'I'},
 	},
 	WebListenAddr: ":65300",
 	WebUsername:   "",

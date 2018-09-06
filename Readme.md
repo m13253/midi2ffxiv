@@ -53,56 +53,57 @@ Load your **rehearsal MIDI file**. Then select the track number.
 
 Discuss a rehearsal time with your partner, type in the "Start time", click "Set" to start the scheduler.
 
-During the rehearsal, adjust everyone's "Offset" value so your orchestra is in sync.
+During the rehearsal, adjust everyone's "Offset" value so your orchestra is in sync. Please be notified that you need at least 3 persons (2+ performers, 1 listener) to adjust the offset.
 
 Click "Set" to stop playing, load your **performance MIDI file**.
 
-Discuss a start time and set the scheduler.
+Discuss an official start time and set the scheduler.
 
 FAQ
 ---
 
-1. **Will I get banned for using this?**
+1. **Will I get banned for using MIDI2FFXIV?**
 
    I guess you will not. I don't see any words prohibiting the use of MIDI.
 
    But remember, please do not burden the server by loading crazy MIDI files, and do not post any video of performing the song "Answers" otherwise you will get copyright infringement takedown.
 
-2. **Why does the program require administrative rights?**
+2. **Why does MIDI2FFXIV require administrative rights?**
 
    This program should work without administrator, just delete the file `midi2ffxiv.exe.manifest`.
 
-   However, for some users whose game client is run under UAC (especially FFXIV China Edition), administrative rights is required.
+   However, for some users whose game client is run under UAC (especially FFXIV China Edition), administrative rights is required for MIDI2FFXIV.
 
 3. **Do I need to permit MIDI2FFXIV to go through the firewall?**
 
-   If you need to control MIDI2FFXIV with your phone or another computer, please allow it. But if your gaming PC is directly connect to the outside Internet without any protection, I suggest you add a password (see below).
+   If you need to control MIDI2FFXIV with your phone or another computer, please allow it. But if your gaming PC is directly connect to the outside Internet without any protection, I suggest you add a password.
 
-4. **How to add a password?**
+   Edit [midi2ffxiv.conf](midi2ffxiv.conf), find the following lines:
+
+   ```conf
+   WebUsername
+   WebPassword
+   ```
+
+   Add your desired username and password there.
+
+4. **My anti-virus says MIDI2FFXIV is a virus!**
+
+   Mine also does.
+
+   If you don't trust the pre-compiled program, you can compile the program yourself. (see below)
+
+5. **How to compile MIDI2FFXIV on my own?**
 
    You will need to download [Go](https://golang.org/dl/) to recompile the program.
 
-   After you have Go, download the source code of MIDI2FFXIV, edit [preset.go](preset.go), find:
-
-   ```go
-   WebListenAddr: ":65300",
-   WebUsername:   "",
-   WebPassword:   "",
-   ```
-
-   Change them. Then type into Command Prompt to compile the program:
+   Type the following commands into "Command Prompt" to compile the program:
 
    ```cmd
    cd /d "SOURCE CODE PATH"
    go get -d -u -v .
    go build
    ```
-
-5. **My anti-virus says MIDI2FFXIV is a virus!**
-
-   Mine also does.
-
-   If you don't trust the pre-compiled program, you can compile the program yourself.
 
 License
 -------

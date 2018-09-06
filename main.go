@@ -99,6 +99,11 @@ func (app *application) run(args []string) int {
 	fmt.Println()
 
 	app.preset = defaultPreset
+	err := app.parseConfigFile()
+	if err != nil {
+		log.Println("Error: ", err)
+		return app.delayReturn(1)
+	}
 
 	app.ctx, app.Quit = context.WithCancel(context.Background())
 
@@ -118,7 +123,7 @@ func (app *application) run(args []string) int {
 
 	app.ntpMutex = new(sync.RWMutex)
 
-	err := app.startWebServer()
+	err = app.startWebServer()
 	if err != nil {
 		log.Println("Error: ", err)
 		return app.delayReturn(1)
@@ -222,7 +227,7 @@ func (app *application) consumeStdin() {
 }
 
 func (app *application) delayReturn(code int) int {
-	fmt.Fprint(os.Stderr, "Press Ctrl-C to exit...")
+	fmt.Fprint(os.Stderr, "\nPress Ctrl-C to exit...")
 	time.Sleep(1 * time.Minute)
 	fmt.Fprintln(os.Stderr)
 	return code
