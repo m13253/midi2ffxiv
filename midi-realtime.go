@@ -181,6 +181,9 @@ func (app *application) setMidiOutTranspose(midiOutTranspose int) {
 }
 
 func (app *application) onMidiInEvent(event []byte) {
+	if len(event) == 0 {
+		return
+	}
 	app.addMidiInEvent(&midiRealtimeEvent{
 		Time:     time.Now(),
 		Message:  event,
