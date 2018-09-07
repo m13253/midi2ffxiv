@@ -27,6 +27,8 @@ Adjust the volume on your MIDI controller so you can hear from both the game and
 
 Then start performing! Be careful not to play notes too fast, since you may experience latency or note loss if there are less than 140 ms between notes.
 
+**Note: For realtime performance, MIDI2FFXIV restricts the distance between any two notes to at least 140ms. This is also the restriction of the game, although you can change the value in [midi2ffxiv.conf](midi2ffxiv.conf).**
+
 Automatic Performance
 ---------------------
 
@@ -53,28 +55,38 @@ Load your **rehearsal MIDI file**. Then select the track number.
 
 Discuss a rehearsal time with your partner, type in the "Start time", click "Set" to start the scheduler.
 
-During the rehearsal, adjust everyone's "Offset" value so your orchestra is in sync. Please be notified that you need at least 3 persons (2+ performers, 1 listener) to adjust the offset.
+During the rehearsal, adjust everyone's "Offset" value so your orchestra is in sync.
 
 Click "Set" to stop playing, load your **performance MIDI file**.
 
 Discuss an official start time and set the scheduler.
 
+**Note: As of Patch 4.3, the latency between the performer and the audience is around 1.5s. Therefore, you need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener)**
+
 FAQ
 ---
 
-1. **Will I get banned for using MIDI2FFXIV?**
+1. **How to change keybindings?**
+
+   The default keybinding is stored in [midi2ffxiv.conf](midi2ffxiv.conf). Open it with Notepad and play around with it.
+
+   An alternative keybinding without Ctrl, Alt, Shift is in [midi2ffxiv\_no\_modifier.conf](midi2ffxiv_no_modifier.conf). If you want to use it, rename it to [midi2ffxiv.conf](midi2ffxiv.conf).
+
+   Note: For any non-alphanumeric keys, please look up the [Virtual-Key Codes](https://docs.microsoft.com/en-us/windows/desktop/inputdev/virtual-key-codes) table for key codes.
+
+2. **Will I get banned for using MIDI2FFXIV?**
 
    I guess you will not. I don't see any words prohibiting the use of MIDI.
 
    But remember, please do not burden the server by loading crazy MIDI files, and do not post any video of performing the song "Answers" otherwise you will get copyright infringement takedown.
 
-2. **Why does MIDI2FFXIV require administrative rights?**
+3. **Why does MIDI2FFXIV require administrative rights?**
 
    This program should work without administrator, just delete the file `midi2ffxiv.exe.manifest`.
 
    However, for some users whose game client is run under UAC (especially FFXIV China Edition), administrative rights is required for MIDI2FFXIV.
 
-3. **Do I need to permit MIDI2FFXIV to go through the firewall?**
+4. **Do I need to permit MIDI2FFXIV to go through the firewall?**
 
    If you need to control MIDI2FFXIV with your phone or another computer, please allow it. But if your gaming PC is directly connect to the outside Internet without any protection, I suggest you add a password.
 
@@ -87,13 +99,13 @@ FAQ
 
    Add your desired username and password there.
 
-4. **My anti-virus says MIDI2FFXIV is a virus!**
+5. **My anti-virus says MIDI2FFXIV is a virus!**
 
    Mine also does.
 
    If you don't trust the pre-compiled program, you can compile the program yourself. (see below)
 
-5. **How to compile MIDI2FFXIV on my own?**
+6. **How to compile MIDI2FFXIV on my own?**
 
    You will need to download [Go](https://golang.org/dl/) to recompile the program.
 
