@@ -202,12 +202,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 			}
 			app.keyStatus.lastModifierTime = now
 		}
-		if !app.keyStatus.lastNoteTime.IsZero() && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNote) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteTime) < app.SkillCooldown {
-			waitTime := app.keyStatus.lastNoteTime.Add(app.SkillCooldown).Sub(now)
-			log.Printf("Skill cooldown sleep %s.\n", waitTime)
-			time.Sleep(waitTime)
-			now = time.Now()
-		} else if !event.Realtime {
+		if !event.Realtime {
 			if len(pInputs) != 0 {
 				_, err := user32.SendInput(pInputs)
 				if err != nil {
@@ -218,6 +213,12 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 			}
 			waitTime := app.ModifierCooldown
 			log.Printf("Modifier cooldown (playback) %s.\n", waitTime)
+			time.Sleep(waitTime)
+			now = time.Now()
+		}
+		if !app.keyStatus.lastNoteTime.IsZero() && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNote) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteTime) < app.SkillCooldown {
+			waitTime := app.keyStatus.lastNoteTime.Add(app.SkillCooldown).Sub(now)
+			log.Printf("Skill cooldown sleep %s.\n", waitTime)
 			time.Sleep(waitTime)
 			now = time.Now()
 		}
