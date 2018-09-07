@@ -34,11 +34,11 @@ Automatic Performance
 
 First, load a MIDI file. You may find songs in [demo](demo). Then select the track number.
 
-- For Format-0 MIDI file, track number is always 0.
+- For Format-0 MIDI file, your song only stays in track 0.
 
 - For Format-1 MIDI file, track 0 is usually empty, your song stays in other tracks counting from 1.
 
-- For Format-2 MIDI file, your songs are in both track 0 and other tracks.
+- For Format-2 MIDI file, your songs counts from track 0.
 
 After selecting the track, click "Copy" next to "Current time". Then click "Set" next to "Start time".
 
