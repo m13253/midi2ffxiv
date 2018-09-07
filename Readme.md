@@ -36,7 +36,7 @@ First, load a MIDI file. You may find songs in [demo](demo). Then select the tra
 
 - For Format-0 MIDI file, track number is always 0.
 
-- For Format-1 MIDI file, track 0 is usually empty, your song stays in other tracks.
+- For Format-1 MIDI file, track 0 is usually empty, your song stays in other tracks counting from 1.
 
 - For Format-2 MIDI file, your songs are in both track 0 and other tracks.
 
