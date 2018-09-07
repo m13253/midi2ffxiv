@@ -1,17 +1,34 @@
 # Bach Prelude.mid
 
-Song name: Prelude 1 in C Major (BWV 846)
+Song name: Prelude in C Major (BWV 846)
 Original:  Johann Sebastian Bach
+Arrange:   Star Brilliant
 Copyright: Public Domain
 Run time:  1:35
 
 Part 1:    Transpose  0, recommended: Harp
 
 
+# Canon in D.mid
+
+Song name: Canon in D (PWC 37, T. 337, PC 358)
+Original:  Johann Pachelbel
+Arrange:   Steven Tung
+Copyright: Creative Commons Attribution-NonCommercial 3.0
+URL:       https://imslp.org/wiki/File:PMLP04611-00-2013-jan-15-2238-pachelbelcanon-for-flute-quartet-score.pdf
+Run time:  5:25
+
+Part 1:    Transpose +12, recommended: Flute
+Part 2:    Transpose +12, recommended: Flute
+Part 3:    Transpose +12, recommended: Flute
+Part 4:    Transpose +12, recommended: Flute
+
+
 # Fur Elise.mid
 
 Song name: Für Elise
 Original:  Ludwig van Beethoven
+Arrange:   Star Brilliant
 Copyright: Public domain
 Run time:  2:39
 
