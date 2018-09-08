@@ -194,6 +194,7 @@ func (app *application) processMidiQueue() {
 			})
 			<-done
 
+			// FIXME: Deadlock when queue is full
 			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
 				err := app.sendMidiOutMessage(nextNote)
 				if err != nil {
