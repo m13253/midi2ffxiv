@@ -258,6 +258,7 @@ func (app *application) setMidiPlaybackTrack(trackNumber uint16) {
 
 func (app *application) setMidiPlaybackOffset(offset time.Duration) {
 	app.MidiPlaybackOffset = offset
+	app.midiFileBuffer.nextEventTimer.Reset(0)
 }
 
 func (app *application) getMidiPlaybackScheduler() (enabled bool, startTime time.Time, loopEnabled bool, loopInterval time.Duration) {

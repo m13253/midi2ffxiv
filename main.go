@@ -226,6 +226,17 @@ func (app *application) consumeStdin() {
 		for _, event := range lpBuffer[:lpNumberOfEventsRead] {
 			if event.EventType == kernel32.KEY_EVENT && event.KeyEvent.WVirtualKeyCode == 'C' && (event.KeyEvent.DwControlKeyState&(kernel32.LEFT_CTRL_PRESSED|kernel32.RIGHT_CTRL_PRESSED)) != 0 {
 				app.Quit()
+			} else if event.EventType == kernel32.KEY_EVENT && event.KeyEvent.WVirtualKeyCode == 'P' && (event.KeyEvent.DwControlKeyState&(kernel32.LEFT_CTRL_PRESSED|kernel32.RIGHT_CTRL_PRESSED)) != 0 && (event.KeyEvent.DwControlKeyState&(kernel32.LEFT_ALT_PRESSED|kernel32.RIGHT_ALT_PRESSED)) != 0 && (event.KeyEvent.DwControlKeyState&kernel32.SHIFT_PRESSED) != 0 {
+				log.Println("Stack trace requested")
+				buf := make([]byte, 1024)
+				for {
+					n := runtime.Stack(buf, true)
+					if n < len(buf) {
+						fmt.Println(string(buf[:n]))
+						break
+					}
+					buf = make([]byte, 2*len(buf))
+				}
 			}
 		}
 	}
