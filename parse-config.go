@@ -40,6 +40,7 @@ import (
 func (app *application) parseConfigFile() error {
 	f, err := os.Open(app.ConfigFile)
 	if err != nil {
+		log.Printf("Error: %s\n", err.Error())
 		log.Printf("Unable to load %s, default settings applied.\n", app.ConfigFile)
 		return nil
 	}

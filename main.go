@@ -43,6 +43,8 @@ import (
 	"./winmm"
 )
 
+var versionInfo string
+
 type application struct {
 	preset
 
@@ -94,6 +96,9 @@ func (app *application) run(args []string) int {
 	_ = kernel32.SetPriorityClass(kernel32.GetCurrentProcess(), kernel32.HIGH_PRIORITY_CLASS)
 
 	fmt.Println("MIDI2FFXIV")
+	if versionInfo != "" {
+		fmt.Printf("Version: %s\n", versionInfo)
+	}
 	fmt.Println("Copyright (c) 2018 Star Brilliant")
 	fmt.Println("=================================")
 	fmt.Println()
