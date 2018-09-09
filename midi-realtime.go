@@ -269,10 +269,13 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 	case 0xf0:
 	}
 	// FIXME: Deadlock when queue is full
-	app.pendingNotes <- &midiRealtimeEvent{
+	select {
+	case app.pendingNotes <- &midiRealtimeEvent{
 		Time:     event.Time,
 		Message:  filteredMessage,
 		Realtime: event.Realtime,
+	}:
+	default:
 	}
 }
 
