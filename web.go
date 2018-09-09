@@ -66,6 +66,7 @@ func (app *application) startWebServer() error {
 		Password: h.app.WebPassword,
 	}
 	h.serveMux.Handle("/", http.FileServer(http.Dir("web")))
+	h.serveMux.HandleFunc("/version", h.version)
 	h.serveMux.HandleFunc("/midi-input-device", h.midiInputDevice)
 	h.serveMux.HandleFunc("/midi-output-device", h.midiOutputDevice)
 	h.serveMux.HandleFunc("/midi-output-bank", h.midiOutputBank)
@@ -143,6 +144,14 @@ func isErrorAddressAlreadyInUse(err error) bool {
 func (h *webHandlers) waitForQuit() {
 	<-h.app.ctx.Done()
 	h.server.Close()
+}
+
+func (h *webHandlers) version(w http.ResponseWriter, r *http.Request) {
+	var result struct {
+		VersionInfo string `json:"version_info"`
+	}
+	result.VersionInfo = versionInfo
+	writeJSON(w, result)
 }
 
 func (h *webHandlers) midiInputDevice(w http.ResponseWriter, r *http.Request) {

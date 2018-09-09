@@ -66,7 +66,18 @@
         option.value = value;
         element.appendChild(option);
     }
+
     var suppressEvents = false;
+
+    function doVersionInfoUpdate() {
+        requestHTTP("GET", "/version", null, function onLoad(event, response) {
+            if (response["version_info"]) {
+                document.getElementById("version-info").innerText = "Version " + response["version_info"] + ".";
+            }
+        }, function onError(event, error) {
+        });
+    }
+
     function doMidiInputRefresh(quiet) {
         requestHTTP("GET", "/midi-input-device", null, function onLoad(event, response) {
             var list = document.getElementById("midi-input-device");
@@ -327,9 +338,48 @@
         });
     }
 
-    function updateServerTime() {
-        doUpdateServerTime();
-        setTimeout(updateServerTime, 5000);
+    function updateAllStates(state) {
+        switch (state) {
+            case 0:
+                doVersionInfoUpdate();
+                doMidiInputRefresh(true);
+                doMidiOutputRefresh(true);
+                doSynthInstrumentRefresh();
+                doNTPServerUpdate();
+                doUpdateServerTime();
+                doMIDITrackNumberRefresh();
+                doMIDIOffsetMsRefresh();
+                doSchedulerRefresh();
+                return setTimeout(updateAllStates, 1000, 1);
+            case 1:
+                doVersionInfoUpdate();
+                return setTimeout(updateAllStates, 1000, 2);
+            case 2:
+                doMidiInputRefresh(true);
+                doMidiOutputRefresh(true);
+                return setTimeout(updateAllStates, 1000, 3);
+            case 3:
+                if (document.activeElement !== document.getElementById("synth-bank") && document.activeElement !== document.getElementById("synth-patch") && document.activeElement !== document.getElementById("synth-transpose")) {
+                    doSynthInstrumentRefresh();
+                }
+                return setTimeout(updateAllStates, 1000, 4);
+            case 4:
+                doUpdateServerTime();
+                return setTimeout(updateAllStates, 1000, 5);
+            case 5:
+                if (document.activeElement !== document.getElementById("midi-track-number")) {
+                    doMIDITrackNumberRefresh();
+                }
+                if (document.activeElement !== document.getElementById("midi-offset-ms")) {
+                    doMIDIOffsetMsRefresh();
+                }
+                return setTimeout(updateAllStates, 1000, 6);
+            case 6:
+                if (document.activeElement !== document.getElementById("sched-start-time") && document.activeElement !== document.getElementById("sched-loop-interval")) {
+                    doSchedulerRefresh();
+                }
+                return setTimeout(updateAllStates, 1000, 1);
+        }
     }
 
     function onNTPSyncClicked() {
@@ -443,7 +493,8 @@
         });
     }
 
-    function onSchedSetClicked() {
+    function onSchedulerChanged() {
+        if (suppressEvents) { return; }
         var timeRegEx = /(\d{1,2})\s*:\s*(\d{1,2})\s*:\s*(\d{1,2})/;
         var durationRegEx = /(?:(?:(\d+)\s*:\s*)?(\d+)\s*:\s*)?(\d+)/;
         var startTimeMatch = document.getElementById("sched-start-time").value.match(timeRegEx);
@@ -479,16 +530,21 @@
             loopInterval = loopIntervalHours * 3600 + loopIntervalMinutes * 60 + loopintervalSeconds;
         }
 
-        var button = this;
-        if (!schedulerEnabled) {
-            button.disabled = true;
-            setTimeout(function onTimeout() {
-                button.disabled = false;
-            }, 1000);
+        var button = document.getElementById("sched-set");
+        if (this === button) {
+            schedulerEnabled = !schedulerEnabled;
+            if (schedulerEnabled) {
+                button.disabled = true;
+                setTimeout(function onTimeout() {
+                    button.disabled = false;
+                }, 1000);
+            }
+        } else if (this === document.getElementById("sched-start-time") || (loopEnabled && this === document.getElementById("sched-loop-interval"))) {
+            schedulerEnabled = false;
         }
 
         var body = {
-            "enabled": !schedulerEnabled,
+            "enabled": schedulerEnabled,
             "start_time": startTime !== null ? startTime.getTime() * 0.001 : null,
             "loop_enabled": loopEnabled,
             "loop_interval": loopInterval,
@@ -518,17 +574,13 @@
     document.getElementById("midi-file").addEventListener("change", onMIDIFileChanged);
     document.getElementById("midi-track-number").addEventListener("change", onMIDITrackNumberChanged);
     document.getElementById("midi-offset-ms").addEventListener("change", onMIDIOffsetMsChanged);
-    document.getElementById("sched-set").addEventListener("click", onSchedSetClicked);
+    document.getElementById("sched-start-time").addEventListener("change", onSchedulerChanged);
+    document.getElementById("sched-set").addEventListener("click", onSchedulerChanged);
+    document.getElementById("sched-loop-enabled").addEventListener("change", onSchedulerChanged);
+    document.getElementById("sched-loop-interval").addEventListener("change", onSchedulerChanged);
 
     document.getElementById("midi-file").value = "";
-    doMidiInputRefresh(true);
-    doMidiOutputRefresh(true);
-    doSynthInstrumentRefresh();
-    doNTPServerUpdate();
-    doMIDITrackNumberRefresh();
-    doMIDIOffsetMsRefresh();
-    doSchedulerRefresh();
-    updateServerTime();
+    updateAllStates(0);
     requestAnimationFrame(displayServerTime);
 
 })();
