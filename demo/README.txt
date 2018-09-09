@@ -43,6 +43,7 @@ Original:  祖堅正慶 (Masayoshi Soken)
 Arrange:   Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
 Run time:  1:57
+Loop time: 1:55.200
 
 Part 1:    Transpose +12, recommended: Flute
 Part 2:    Transpose +12, recommended: Oboe (identical to Part 1)
@@ -58,7 +59,8 @@ Song name: プレリュード (Relay mix)
 Original:  植松伸夫 (Nobuo Uematsu)
 Arrange:   Star Brilliant
 Copyright: Square Enix Co. Ltd., all rights reserved.
-Run time:  3:45
+Run time:  3:46
+Loop time: 3:35.730
 
 Part 1:    Transpose +12, recommended: Grand Piano
 Part 2:    Transpose   0, recommended: Harp
