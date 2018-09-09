@@ -78,7 +78,7 @@ FAQ
 
    I guess you will not. I don't see any words prohibiting the use of MIDI.
 
-   But remember, please do not burden the server by loading crazy MIDI files, and do not post any video of performing the song "Answers" otherwise you will get copyright infringement takedown.
+   But remember, please do not burden the server by loading crazy MIDI files, and do not post any video of performing the song "Answers / Dragonsong / Revolutions" otherwise you will get copyright infringement takedown.
 
 3. **Why does MIDI2FFXIV require administrative rights?**
 
