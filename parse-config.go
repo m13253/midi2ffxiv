@@ -75,7 +75,9 @@ func (app *application) parseConfigFile() error {
 		case "MinTriggerVelocity":
 			err = app.parseConfigUint8(fields, &app.MinTriggerVelocity)
 		case "Keybinding":
-			err = app.parseConfigKeybinding(fields, &app.Keybinding)
+			err = app.parseConfigKeybindings(fields, &app.Keybinding)
+		case "EmergencyStop":
+			err = app.parseConfigKeybinding(fields, &app.EmergencyStop)
 		case "WebListenAddr":
 			err = app.parseConfigString(fields, &app.WebListenAddr)
 		case "WebUsername":
@@ -131,7 +133,37 @@ func (app *application) parseConfigString(fields []string, dest *string) error {
 	return nil
 }
 
-func (app *application) parseConfigKeybinding(fields []string, dest *[128]keybindingPreset) error {
+func (app *application) parseConfigKeybinding(fields []string, dest **keybindingPreset) error {
+	if len(fields) < 2 {
+		return fmt.Errorf("syntax error in option %q", fields[0])
+	}
+	keybind := &keybindingPreset{}
+	virtualKeyCode := fields[len(fields)-1]
+	if len(virtualKeyCode) == 3 && virtualKeyCode[0] == '\'' && virtualKeyCode[2] == '\'' {
+		keybind.VirtualKeyCode = bytes.ToUpper([]byte{virtualKeyCode[1]})[0]
+	} else {
+		value, err := strconv.ParseUint(virtualKeyCode, 0, 8)
+		if err != nil {
+			return err
+		}
+		keybind.VirtualKeyCode = uint8(value)
+	}
+	for _, i := range fields[1 : len(fields)-1] {
+		if strings.EqualFold(i, "Ctrl") {
+			keybind.Ctrl = true
+		} else if strings.EqualFold(i, "Alt") {
+			keybind.Alt = true
+		} else if strings.EqualFold(i, "Shift") {
+			keybind.Shift = true
+		} else {
+			return fmt.Errorf("unrecognized modifier %q", i)
+		}
+	}
+	*dest = keybind
+	return nil
+}
+
+func (app *application) parseConfigKeybindings(fields []string, dest *[128]keybindingPreset) error {
 	if len(fields) < 3 {
 		return fmt.Errorf("syntax error in option %q", fields[0])
 	}

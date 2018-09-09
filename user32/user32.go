@@ -47,7 +47,12 @@ const (
 	VK_SHIFT              uint16  = 0x10
 	VK_CONTROL            uint16  = 0x11
 	VK_MENU               uint16  = 0x12
+	MOD_ALT               uint16  = 0x0001
+	MOD_CONTROL           uint16  = 0x0002
+	MOD_NOREPEAT          uint16  = 0x4000
+	MOD_SHIFT             uint16  = 0x0004
 	WM_QUIT               uint32  = 0x0012
+	WM_HOTKEY             uint32  = 0x0312
 )
 
 type INPUT_KEYBDINPUT struct {
@@ -101,6 +106,7 @@ var (
 	getMessage       *windows.LazyProc
 	mapVirtualKey    *windows.LazyProc
 	postMessage      *windows.LazyProc
+	registerHotKey   *windows.LazyProc
 	translateMessage *windows.LazyProc
 	registerClassEx  *windows.LazyProc
 	sendInput        *windows.LazyProc
@@ -114,6 +120,7 @@ func init() {
 	getMessage = user32.NewProc("GetMessageW")
 	mapVirtualKey = user32.NewProc("MapVirtualKeyW")
 	postMessage = user32.NewProc("PostMessageW")
+	registerHotKey = user32.NewProc("RegisterHotKey")
 	translateMessage = user32.NewProc("TranslateMessage")
 	registerClassEx = user32.NewProc("RegisterClassExW")
 	sendInput = user32.NewProc("SendInput")
@@ -159,6 +166,14 @@ func MapVirtualKey(uCode, uMapType uint32) (uResult uint32) {
 
 func PostMessage(hWnd uintptr, Msg uint32, wParam, lParam uintptr) (bResult bool, err error) {
 	r1, _, err := postMessage.Call(hWnd, uintptr(Msg), wParam, lParam)
+	if uint32(r1) == 0 {
+		return
+	}
+	return true, nil
+}
+
+func RegisterHotKey(hWnd uintptr, id int32, fsModifiers, vk uint32) (bResult bool, err error) {
+	r1, _, err := registerHotKey.Call(hWnd, uintptr(id), uintptr(fsModifiers), uintptr(vk))
 	if uint32(r1) == 0 {
 		return
 	}

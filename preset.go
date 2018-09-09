@@ -47,6 +47,7 @@ type preset struct {
 	NtpCooldown        time.Duration
 	MinTriggerVelocity uint8
 	Keybinding         [128]keybindingPreset
+	EmergencyStop      *keybindingPreset
 
 	WebListenAddr string
 	WebUsername   string
@@ -104,6 +105,7 @@ var defaultPreset = preset{
 
 		0x54: {false, false, true, 'I'},
 	},
+	EmergencyStop: &keybindingPreset{true, true, true, 0xdb},
 	WebListenAddr: ":65300",
 	WebUsername:   "",
 	WebPassword:   "",

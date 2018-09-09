@@ -144,6 +144,23 @@ func (app *application) run(args []string) int {
 		log.Println("Error: ", err)
 		return app.delayReturn(int(err.(syscall.Errno)))
 	}
+	if app.EmergencyStop != nil && app.EmergencyStop.VirtualKeyCode != 0 {
+		hotkeyModifiers := user32.MOD_NOREPEAT
+		if app.EmergencyStop.Ctrl {
+			hotkeyModifiers |= user32.MOD_CONTROL
+		}
+		if app.EmergencyStop.Alt {
+			hotkeyModifiers |= user32.MOD_ALT
+		}
+		if app.EmergencyStop.Shift {
+			hotkeyModifiers |= user32.MOD_SHIFT
+		}
+		_, err := user32.RegisterHotKey(app.hWnd, 1, uint32(hotkeyModifiers), uint32(app.EmergencyStop.VirtualKeyCode))
+		if err != nil {
+			log.Println("Failed to register emergency stop hotkey, is another instance running?")
+			log.Println("Error: ", err)
+		}
+	}
 
 	go app.consumeStdin()
 	go app.processKeystrokes()
@@ -257,11 +274,19 @@ func (app *application) waitForQuit() {
 
 func (app *application) windowProc(hWnd uintptr, uMsg uint32, wParam, lParam uintptr) uintptr {
 	switch uMsg {
+	case user32.WM_HOTKEY:
+		log.Println("Emergency stop pressed!")
+		app.MidiPlaybackGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
+			app.setMidiPlaybackScheduler(false, app.MidiPlaybackSchedule, app.MidiPlaybackLoopEnabled, app.MidiPlaybackLoop)
+			return nil, nil
+		})
 	case winmm.MM_MIM_OPEN:
+		// no-op
 	case winmm.MM_MIM_CLOSE:
+		// no-op
 	case winmm.MM_MIM_DATA, winmm.MM_MIM_MOREDATA:
 		midiEvent := []byte{byte(lParam), byte(lParam >> 8), byte(lParam >> 16)}
-		app.MidiRealtimeGoro.Submit(app.ctx, func(context.Context) (interface{}, error) {
+		app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
 			app.onMidiInEvent(midiEvent)
 			return nil, nil
 		})
