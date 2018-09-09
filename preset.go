@@ -56,9 +56,9 @@ type preset struct {
 
 var defaultPreset = preset{
 	ConfigFile:         "midi2ffxiv.conf",
-	IdleDuration:       1 * time.Second,
+	IdleDuration:       2500 * time.Millisecond,
 	MaxNoteDelay:       300 * time.Millisecond,
-	SkillCooldown:      140 * time.Millisecond,
+	SkillCooldown:      125 * time.Millisecond,
 	ModifierCooldown:   50 * time.Millisecond,
 	NtpSyncTimeout:     5 * time.Second,
 	NtpCooldown:        10 * time.Second,

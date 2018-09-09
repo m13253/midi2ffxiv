@@ -25,9 +25,9 @@ If you use VirtualMIDISynth, you can reduce the buffer time to 5 - 10 ms for low
 
 Adjust the volume on your MIDI controller so you can hear from both the game and the synthesizer.
 
-Then start performing! Be careful not to play notes too fast, since you may experience latency or note loss if there are less than 140 ms between notes.
+Then start performing! Be careful not to play notes too fast, since you may experience latency or note loss if there are less than 125 ms between notes.
 
-**Note: For realtime performance, MIDI2FFXIV restricts the distance between any two notes to at least 140 ms. This is also the restriction of the game, although you can change the value in [midi2ffxiv.conf](midi2ffxiv.conf).**
+**Note: For realtime performance, MIDI2FFXIV restricts the distance between any two notes to at least 125 ms. This is also the restriction of the game, although you can change the value in [midi2ffxiv.conf](midi2ffxiv.conf).**
 
 Automatic Performance
 ---------------------
