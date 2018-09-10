@@ -69,8 +69,8 @@ func (app *application) processKeystrokes() {
 		case nextAction := <-app.keystrokeQueue.NextAction():
 			nextEvent := nextAction.Value.(*midiQueueEvent)
 			app.produceKeystroke(nextEvent)
-		case <-app.keyStatus.clearModifiersTimer.C:
-			app.clearModifiers()
+		case now := <-app.keyStatus.clearModifiersTimer.C:
+			app.clearModifiers(now)
 		case <-app.ctx.Done():
 			return
 		}
@@ -237,14 +237,14 @@ func (app *application) produceKeystroke(event *midiQueueEvent) {
 			if waitTime != 0 {
 				log.Printf("Modifier cooldown (playback) %s.\n", waitTime)
 				time.Sleep(waitTime)
-				now = time.Now()
+				now = now.Add(waitTime)
 			}
 		}
 		if !app.keyStatus.lastNoteTime.IsZero() && ((event.Message[0] == 0x80 && app.keyStatus.lastNote == uint8(note)) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteTime) < app.SkillCooldown {
 			waitTime := app.keyStatus.lastNoteTime.Add(app.SkillCooldown).Sub(now)
 			log.Printf("Skill cooldown sleep %s.\n", waitTime)
 			time.Sleep(waitTime)
-			now = time.Now()
+			now = now.Add(waitTime)
 		}
 		if !event.Expiry.IsZero() && now.After(event.Expiry) {
 			return
@@ -266,7 +266,7 @@ func (app *application) produceKeystroke(event *midiQueueEvent) {
 			waitTime := app.keyStatus.lastModifierTime.Add(app.ModifierCooldown).Sub(now)
 			log.Printf("Modifier cooldown (realtime) %s.\n", waitTime)
 			time.Sleep(waitTime)
-			now = time.Now()
+			now = now.Add(waitTime)
 		}
 		app.keyStatus.lastNote = uint8(note)
 		app.keyStatus.lastNoteTime = now
@@ -328,9 +328,8 @@ func (app *application) produceKeystroke(event *midiQueueEvent) {
 	}
 }
 
-func (app *application) clearModifiers() {
+func (app *application) clearModifiers(now time.Time) {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
-	now := time.Now()
 	if app.keyStatus.ctrl.Pressed {
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,

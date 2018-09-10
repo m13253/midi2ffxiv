@@ -76,8 +76,8 @@ func (app *application) processMidiPlayback() {
 				return
 			}
 			_ = cgc.RunOneRequest(app.ctx, r)
-		case <-app.midiFileBuffer.nextEventTimer.C:
-			app.playNextMidiEvent()
+		case now := <-app.midiFileBuffer.nextEventTimer.C:
+			app.playNextMidiEvent(now)
 		case <-app.ctx.Done():
 			return
 		}
@@ -174,7 +174,7 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 	return nil
 }
 
-func (app *application) playNextMidiEvent() {
+func (app *application) playNextMidiEvent(now time.Time) {
 	if !app.MidiPlaybackScheduleEnabled {
 		return
 	}
@@ -182,7 +182,6 @@ func (app *application) playNextMidiEvent() {
 		log.Printf("Invalid track number (%d), max %d\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks)-1)
 		return
 	}
-	now := time.Now()
 	playbackProgress := now.Add(app.NtpClockOffset).Add(app.MidiPlaybackOffset).Sub(app.MidiPlaybackSchedule)
 	if playbackProgress < 0 {
 		app.midiFileBuffer.nextEventIndex = 0
