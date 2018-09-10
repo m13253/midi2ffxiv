@@ -66,6 +66,9 @@ func (app *application) processKeystrokes() {
 				return
 			}
 			_ = cgc.RunOneRequest(app.ctx, r)
+		case nextAction := <-app.keystrokeQueue.NextAction():
+			nextEvent := nextAction.Value.(*midiRealtimeEvent)
+			app.produceKeystroke(nextEvent)
 		case <-app.keyStatus.clearModifiersTimer.C:
 			app.clearModifiers()
 		case <-app.ctx.Done():
@@ -74,11 +77,15 @@ func (app *application) processKeystrokes() {
 	}
 }
 
-func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan struct{}) {
+func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
 	now := time.Now()
 	if event.Message[0] == 0x80 {
-		close(done)
+		if event.Realtime {
+			app.midiOutQueue.AddAction(event, now)
+		} else {
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+		}
 		keybind := &app.Keybinding[event.Message[1]]
 		if keybind.VirtualKeyCode == 0 {
 			return
@@ -105,7 +112,8 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 		app.keyStatus.clearModifiersTimer.Stop()
 		keybind := &app.Keybinding[event.Message[1]]
 		if keybind.VirtualKeyCode == 0 {
-			close(done)
+			noteName, _ := noteIndexToName(event.Message[1])
+			log.Printf("Note %s out of range.\n", noteName)
 			return
 		}
 		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed {
@@ -202,7 +210,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 			}
 			app.keyStatus.lastModifierTime = now
 		}
-		if !event.Realtime {
+		if !event.Realtime && app.ModifierCooldown != 0 {
 			if len(pInputs) != 0 {
 				_, err := user32.SendInput(pInputs)
 				if err != nil {
@@ -212,9 +220,11 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 				pInputs = []user32.INPUT_KEYBDINPUT{}
 			}
 			waitTime := app.ModifierCooldown
-			log.Printf("Modifier cooldown (playback) %s.\n", waitTime)
-			time.Sleep(waitTime)
-			now = time.Now()
+			if waitTime != 0 {
+				log.Printf("Modifier cooldown (playback) %s.\n", waitTime)
+				time.Sleep(waitTime)
+				now = time.Now()
+			}
 		}
 		if !app.keyStatus.lastNoteTime.IsZero() && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNote) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteTime) < app.SkillCooldown {
 			waitTime := app.keyStatus.lastNoteTime.Add(app.SkillCooldown).Sub(now)
@@ -222,7 +232,14 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 			time.Sleep(waitTime)
 			now = time.Now()
 		}
-		close(done)
+		if !event.Expiry.IsZero() && now.After(event.Expiry) {
+			return
+		}
+		if event.Realtime {
+			app.midiOutQueue.AddAction(event, now)
+		} else {
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+		}
 		if event.Realtime && !app.keyStatus.lastModifierTime.IsZero() && now.Sub(app.keyStatus.lastModifierTime) < app.ModifierCooldown {
 			if len(pInputs) != 0 {
 				_, err := user32.SendInput(pInputs)
@@ -255,7 +272,11 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastPress = now
 		app.keyStatus.pressedKeysCount++
 	} else if event.Message[0] == 0xb0 {
-		close(done)
+		if event.Realtime {
+			app.midiOutQueue.AddAction(event, now)
+		} else {
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+		}
 		if len(event.Message) > 1 && event.Message[1] == 0x7b {
 			for i := 0; i < 256; i++ {
 				if app.keyStatus.pressedKeys[i].Pressed {
@@ -278,7 +299,11 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent, done chan str
 			app.keyStatus.clearModifiersTimer.Reset(0)
 		}
 	} else {
-		close(done)
+		if event.Realtime {
+			app.midiOutQueue.AddAction(event, now)
+		} else {
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+		}
 	}
 	if len(pInputs) != 0 {
 		_, err := user32.SendInput(pInputs)

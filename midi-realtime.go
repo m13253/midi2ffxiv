@@ -32,18 +32,36 @@ import (
 	"time"
 
 	"./winmm"
+	cgc "github.com/m13253/cgc-go"
 	"golang.org/x/sys/windows"
 )
 
 type midiRealtimeEvent struct {
 	Time              time.Time
+	Expiry            time.Time
 	Message           []byte
 	Realtime          bool
 	AlreadyTransposed bool
 }
 
 func (app *application) processMidiRealtime() {
-	_ = app.MidiRealtimeGoro.RunLoop(app.ctx)
+	for {
+		select {
+		case r, ok := <-app.MidiRealtimeGoro:
+			if !ok {
+				return
+			}
+			_ = cgc.RunOneRequest(app.ctx, r)
+		case nextAction := <-app.midiOutQueue.NextAction():
+			nextEvent := nextAction.Value.(*midiRealtimeEvent)
+			err := app.sendMidiOutMessage(nextEvent)
+			if err != nil {
+				log.Println("Error: ", err)
+			}
+		case <-app.ctx.Done():
+			return
+		}
+	}
 }
 
 func (app *application) listMidiInDevices() []string {
@@ -160,19 +178,19 @@ func (app *application) closeMidiOutDevice() {
 }
 
 func (app *application) setMidiOutBank(midiOutBank uint16) {
-	app.pendingNotes <- &midiRealtimeEvent{
+	app.addMidiEvent(&midiRealtimeEvent{
 		Message: []byte{0xb0, 0x00, uint8(midiOutBank>>15) & 0x7f},
-	}
-	app.pendingNotes <- &midiRealtimeEvent{
+	})
+	app.addMidiEvent(&midiRealtimeEvent{
 		Message: []byte{0xb0, 0x20, uint8(midiOutBank) & 0x7f},
-	}
+	})
 	app.MidiOutBank = midiOutBank
 }
 
 func (app *application) setMidiOutPatch(midiOutPatch uint8) {
-	app.pendingNotes <- &midiRealtimeEvent{
+	app.addMidiEvent(&midiRealtimeEvent{
 		Message: []byte{0xc0, midiOutPatch & 0x7f},
-	}
+	})
 	app.MidiOutPatch = midiOutPatch
 }
 
@@ -184,14 +202,14 @@ func (app *application) onMidiInEvent(event []byte) {
 	if len(event) == 0 {
 		return
 	}
-	app.addMidiInEvent(&midiRealtimeEvent{
+	app.addMidiEvent(&midiRealtimeEvent{
 		Time:     time.Now(),
 		Message:  event,
 		Realtime: true,
 	})
 }
 
-func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
+func (app *application) addMidiEvent(event *midiRealtimeEvent) {
 	channel := event.Message[0] & 0xf
 	// Ignore percussion channel
 	if channel == 9 {
@@ -201,24 +219,22 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 	filteredMessage := make([]byte, len(event.Message))
 	copy(filteredMessage, event.Message)
 	filteredMessage[0] &= 0xf0
-	var note int
+
+	expiry := event.Expiry
 	switch filteredMessage[0] {
 	// Note off
 	case 0x80:
-		note = int(filteredMessage[1])
+		note := int(filteredMessage[1])
 		if event.AlreadyTransposed {
 			note -= app.MidiOutTranspose
 			if note < 0x00 || note > 0x7f {
 				return
 			}
 			filteredMessage[1] = uint8(note)
-		}
-		if keybind := &app.Keybinding[note]; keybind.VirtualKeyCode == 0 {
-			return
 		}
 	// Note on
 	case 0x90:
-		note = int(filteredMessage[1])
+		note := int(filteredMessage[1])
 		if event.AlreadyTransposed {
 			note -= app.MidiOutTranspose
 			if note < 0x00 || note > 0x7f {
@@ -226,17 +242,20 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 			}
 			filteredMessage[1] = uint8(note)
 		}
-		if keybind := &app.Keybinding[note]; keybind.VirtualKeyCode == 0 {
-			noteName, _ := noteIndexToName(uint8(note))
-			log.Printf("Note %s out of range.\n", noteName)
-			return
-		}
-		if filteredMessage[2] < app.MinTriggerVelocity {
+		if filteredMessage[2] == 0 || filteredMessage[2] < app.MinTriggerVelocity {
 			filteredMessage[0] = 0x80
+		} else {
+			if expiry.IsZero() && !event.Time.IsZero() {
+				if event.Realtime {
+					expiry = event.Time.Add(app.RealtimeMaxLatency)
+				} else {
+					expiry = event.Time.Add(app.SkillCooldown)
+				}
+			}
 		}
 	// After touch
 	case 0xa0:
-		note = int(filteredMessage[1])
+		note := int(filteredMessage[1])
 		if event.AlreadyTransposed {
 			note -= app.MidiOutTranspose
 			if note < 0x00 || note > 0x7f {
@@ -244,11 +263,16 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 			}
 			filteredMessage[1] = uint8(note)
 		}
-		if keybind := &app.Keybinding[note]; keybind.VirtualKeyCode == 0 {
-			return
-		}
 		if filteredMessage[2] == 0 {
 			filteredMessage[0] = 0x80
+		} else {
+			if expiry.IsZero() && !event.Time.IsZero() {
+				if event.Realtime {
+					expiry = event.Time.Add(app.RealtimeMaxLatency)
+				} else {
+					expiry = event.Time.Add(app.SkillCooldown)
+				}
+			}
 		}
 	// Control change
 	case 0xb0:
@@ -268,15 +292,13 @@ func (app *application) addMidiInEvent(event *midiRealtimeEvent) {
 	// System Messages
 	case 0xf0:
 	}
-	// FIXME: Deadlock when queue is full
-	select {
-	case app.pendingNotes <- &midiRealtimeEvent{
-		Time:     event.Time,
-		Message:  filteredMessage,
-		Realtime: event.Realtime,
-	}:
-	default:
-	}
+	app.keystrokeQueue.AddActionWithExpiry(&midiRealtimeEvent{
+		Time:              event.Time,
+		Expiry:            expiry,
+		Message:           filteredMessage,
+		Realtime:          event.Realtime,
+		AlreadyTransposed: false,
+	}, event.Time, expiry)
 }
 
 func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
@@ -328,9 +350,9 @@ func (app *application) sendMidiOutMessage(event *midiRealtimeEvent) error {
 }
 
 func (app *application) sendAllNoteOff() {
-	app.pendingNotes <- &midiRealtimeEvent{
+	app.addMidiEvent(&midiRealtimeEvent{
 		Message: []byte{0xb0, 0x7b, 0x00},
-	}
+	})
 }
 
 func getMidiInDevName(uDeviceID uintptr) (string, error) {

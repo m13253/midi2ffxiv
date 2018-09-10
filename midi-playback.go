@@ -28,6 +28,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -69,18 +70,6 @@ func (app *application) processMidiPlayback() {
 		nextEventTimer: time.NewTimer(0),
 	}
 	for {
-		for app.playNextMidiEvent() {
-			select {
-			case r, ok := <-app.MidiPlaybackGoro:
-				if !ok {
-					return
-				}
-				_ = cgc.RunOneRequest(app.ctx, r)
-			case <-app.ctx.Done():
-				return
-			default:
-			}
-		}
 		select {
 		case r, ok := <-app.MidiPlaybackGoro:
 			if !ok {
@@ -88,7 +77,7 @@ func (app *application) processMidiPlayback() {
 			}
 			_ = cgc.RunOneRequest(app.ctx, r)
 		case <-app.midiFileBuffer.nextEventTimer.C:
-			continue
+			app.playNextMidiEvent()
 		case <-app.ctx.Done():
 			return
 		}
@@ -185,20 +174,20 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 	return nil
 }
 
-func (app *application) playNextMidiEvent() bool {
+func (app *application) playNextMidiEvent() {
 	if !app.MidiPlaybackScheduleEnabled {
-		return false
+		return
 	}
 	if int(app.MidiPlaybackTrack) >= len(app.midiFileBuffer.MidiTracks) {
-		log.Printf("Invalid track number (%d) >= len(Tracks) (%d)\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks))
-		return false
+		log.Printf("Invalid track number (%d), max %d\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks)-1)
+		return
 	}
 	now := time.Now()
 	playbackProgress := now.Add(app.NtpClockOffset).Add(app.MidiPlaybackOffset).Sub(app.MidiPlaybackSchedule)
 	if playbackProgress < 0 {
 		app.midiFileBuffer.nextEventIndex = 0
 		app.midiFileBuffer.nextEventTimer.Reset(-playbackProgress)
-		return false
+		return
 	}
 	if app.MidiPlaybackLoopEnabled && app.MidiPlaybackLoop > 0 {
 		playbackProgress %= app.MidiPlaybackLoop
@@ -221,31 +210,27 @@ func (app *application) playNextMidiEvent() bool {
 				return nil, nil
 			})
 		}
-		return false
+		return
 	}
 	if index > 0 {
 		lastNoteProgress := thisTrack[index-1].Microseconds.Duration()
 		if lastNoteProgress > playbackProgress {
 			app.resetMidiPlayback()
-			return false
+			return
 		}
 	}
 	nextNoteProgress := thisTrack[index].Microseconds.Duration()
 	if nextNoteProgress > playbackProgress {
 		app.midiFileBuffer.nextEventTimer.Reset(nextNoteProgress - playbackProgress)
-		return false
+		return
 	}
-	event := &midiRealtimeEvent{
+	app.addMidiEvent(&midiRealtimeEvent{
 		Time:              now.Add(-playbackProgress).Add(nextNoteProgress),
 		Message:           thisTrack[index].Message,
 		AlreadyTransposed: true,
-	}
-	_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
-		app.addMidiInEvent(event)
-		return nil, nil
 	})
 	app.midiFileBuffer.nextEventIndex = index + 1
-	return true
+	app.midiFileBuffer.nextEventTimer.Reset(0)
 }
 
 func (app *application) setMidiPlaybackTrack(trackNumber uint16) {
@@ -257,8 +242,16 @@ func (app *application) setMidiPlaybackTrack(trackNumber uint16) {
 }
 
 func (app *application) setMidiPlaybackOffset(offset time.Duration) {
+	fmt.Printf("Set playback offset to %s.\n", offset)
 	app.MidiPlaybackOffset = offset
-	app.midiFileBuffer.nextEventTimer.Reset(0)
+	if int(app.MidiPlaybackTrack) >= len(app.midiFileBuffer.MidiTracks) {
+		return
+	}
+	thisTrack := app.midiFileBuffer.MidiTracks[app.MidiPlaybackTrack]
+	if app.midiFileBuffer.nextEventIndex >= len(thisTrack) {
+		app.midiFileBuffer.nextEventIndex = 0
+		app.midiFileBuffer.nextEventTimer.Reset(0)
+	}
 }
 
 func (app *application) getMidiPlaybackScheduler() (enabled bool, startTime time.Time, loopEnabled bool, loopInterval time.Duration) {
@@ -274,7 +267,7 @@ func (app *application) setMidiPlaybackScheduler(enabled bool, startTime time.Ti
 }
 
 func (app *application) resetMidiPlayback() {
-	log.Println("Resetting playback.")
+	log.Println("Reset playback.")
 	_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
 		app.sendAllNoteOff()
 		return nil, nil

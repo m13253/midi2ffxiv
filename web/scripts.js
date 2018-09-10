@@ -406,8 +406,11 @@
         hours = hours < 10 ? "0" + hours : "" + hours;
         minutes = minutes < 10 ? "0" + minutes : "" + minutes;
         seconds = seconds < 10 ? "0" + seconds : "" + seconds;
+        suppressEvents = true;
         el.value = hours + " : " + minutes + " : " + seconds;
+        suppressEvents = false;
         reportMessage("Scheduled time is set to 5 seconds later.");
+        onSchedulerChanged.bind(el)();
     }
 
     function onMIDIFileChanged() {

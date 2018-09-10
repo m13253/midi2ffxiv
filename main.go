@@ -36,6 +36,7 @@ import (
 	"time"
 	"unsafe"
 
+	actionqueue "github.com/m13253/actionqueue-go"
 	cgc "github.com/m13253/cgc-go"
 
 	"./kernel32"
@@ -77,7 +78,8 @@ type application struct {
 	hMidiOut    uintptr
 	sysexBuffer [2]*winmm.MIDIHDR
 
-	pendingNotes chan *midiRealtimeEvent
+	midiOutQueue   *actionqueue.Queue
+	keystrokeQueue *actionqueue.Queue
 
 	keyStatus *keystrokeStatus
 
@@ -124,7 +126,10 @@ func (app *application) run(args []string) int {
 	app.MidiOutTranspose = 0
 	app.MidiPlaybackTrack = 1
 
-	app.pendingNotes = make(chan *midiRealtimeEvent, 256)
+	app.midiOutQueue = actionqueue.New()
+	app.midiOutQueue.Run(app.ctx)
+	app.keystrokeQueue = actionqueue.New()
+	app.keystrokeQueue.Run(app.ctx)
 
 	app.ntpMutex = new(sync.RWMutex)
 
@@ -165,7 +170,6 @@ func (app *application) run(args []string) int {
 	go app.consumeStdin()
 	go app.processKeystrokes()
 	go app.processMidiPlayback()
-	go app.processMidiQueue()
 	go app.processMidiRealtime()
 	go app.processNTP()
 	go app.waitForQuit()
@@ -186,43 +190,6 @@ func (app *application) run(args []string) int {
 	app.Quit()
 
 	return 0
-}
-
-func (app *application) processMidiQueue() {
-	for {
-		select {
-		case nextNote := <-app.pendingNotes:
-			now := time.Now()
-			nextNote = &midiRealtimeEvent{
-				Time:              nextNote.Time,
-				Message:           nextNote.Message,
-				Realtime:          nextNote.Realtime,
-				AlreadyTransposed: nextNote.AlreadyTransposed,
-			}
-
-			if (nextNote.Message[0] == 0x90 || nextNote.Message[0] == 0xa0) && !nextNote.Time.IsZero() && now.Sub(nextNote.Time) > app.MaxNoteDelay {
-				continue
-			}
-
-			done := make(chan struct{}, 1)
-			_ = app.KeystrokeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
-				app.produceKeystroke(nextNote, done)
-				return nil, nil
-			})
-			<-done
-
-			// FIXME: Deadlock when queue is full
-			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
-				err := app.sendMidiOutMessage(nextNote)
-				if err != nil {
-					log.Println("Error: ", err)
-				}
-				return nil, nil
-			})
-		case <-app.ctx.Done():
-			break
-		}
-	}
 }
 
 func (app *application) consumeStdin() {

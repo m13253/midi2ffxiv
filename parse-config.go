@@ -62,8 +62,10 @@ func (app *application) parseConfigFile() error {
 		switch fields[0] {
 		case "IdleDuration":
 			err = app.parseConfigDuration(fields, &app.IdleDuration)
-		case "MaxNoteDelay":
-			err = app.parseConfigDuration(fields, &app.MaxNoteDelay)
+		case "PlaybackExtraLatency":
+			err = app.parseConfigDuration(fields, &app.PlaybackExtraLatency)
+		case "RealtimeMaxLatency":
+			err = app.parseConfigDuration(fields, &app.RealtimeMaxLatency)
 		case "SkillCooldown":
 			err = app.parseConfigDuration(fields, &app.SkillCooldown)
 		case "ModifierCooldown":
