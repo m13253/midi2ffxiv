@@ -67,7 +67,7 @@ func (app *application) processKeystrokes() {
 			}
 			_ = cgc.RunOneRequest(app.ctx, r)
 		case nextAction := <-app.keystrokeQueue.NextAction():
-			nextEvent := nextAction.Value.(*midiRealtimeEvent)
+			nextEvent := nextAction.Value.(*midiQueueEvent)
 			app.produceKeystroke(nextEvent)
 		case <-app.keyStatus.clearModifiersTimer.C:
 			app.clearModifiers()
@@ -77,7 +77,7 @@ func (app *application) processKeystrokes() {
 	}
 }
 
-func (app *application) produceKeystroke(event *midiRealtimeEvent) {
+func (app *application) produceKeystroke(event *midiQueueEvent) {
 	pInputs := []user32.INPUT_KEYBDINPUT{}
 	now := time.Now()
 	if event.Message[0] == 0x80 {
@@ -86,11 +86,18 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 		} else {
 			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
 		}
-		keybind := &app.Keybinding[event.Message[1]]
+		note := int(event.Message[1])
+		if event.AlreadyTransposed {
+			note -= app.MidiOutTranspose
+			if note < 0x00 || note > 0x7f {
+				return
+			}
+		}
+		keybind := &app.Keybinding[note]
 		if keybind.VirtualKeyCode == 0 {
 			return
 		}
-		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == event.Message[1] {
+		if app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed && app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote == uint8(note) {
 			pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 				Type: user32.INPUT_KEYBOARD,
 				Ki: user32.KEYBDINPUT{
@@ -110,9 +117,16 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 		}
 	} else if event.Message[0] == 0x90 {
 		app.keyStatus.clearModifiersTimer.Stop()
-		keybind := &app.Keybinding[event.Message[1]]
+		note := int(event.Message[1])
+		if event.AlreadyTransposed {
+			note -= app.MidiOutTranspose
+			if note < 0x00 || note > 0x7f {
+				return
+			}
+		}
+		keybind := &app.Keybinding[note]
 		if keybind.VirtualKeyCode == 0 {
-			noteName, _ := noteIndexToName(event.Message[1])
+			noteName, _ := noteIndexToName(uint8(note))
 			log.Printf("Note %s out of range.\n", noteName)
 			return
 		}
@@ -226,7 +240,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 				now = time.Now()
 			}
 		}
-		if !app.keyStatus.lastNoteTime.IsZero() && ((event.Message[0] == 0x80 && event.Message[1] == app.keyStatus.lastNote) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteTime) < app.SkillCooldown {
+		if !app.keyStatus.lastNoteTime.IsZero() && ((event.Message[0] == 0x80 && app.keyStatus.lastNote == uint8(note)) || event.Message[0] == 0x90) && now.Sub(app.keyStatus.lastNoteTime) < app.SkillCooldown {
 			waitTime := app.keyStatus.lastNoteTime.Add(app.SkillCooldown).Sub(now)
 			log.Printf("Skill cooldown sleep %s.\n", waitTime)
 			time.Sleep(waitTime)
@@ -254,7 +268,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 			time.Sleep(waitTime)
 			now = time.Now()
 		}
-		app.keyStatus.lastNote = event.Message[1]
+		app.keyStatus.lastNote = uint8(note)
 		app.keyStatus.lastNoteTime = now
 		pInputs = append(pInputs, user32.INPUT_KEYBDINPUT{
 			Type: user32.INPUT_KEYBOARD,
@@ -267,7 +281,7 @@ func (app *application) produceKeystroke(event *midiRealtimeEvent) {
 			},
 		})
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].Pressed = true
-		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote = event.Message[1]
+		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].MidiNote = uint8(note)
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastChange = now
 		app.keyStatus.pressedKeys[keybind.VirtualKeyCode].LastPress = now
 		app.keyStatus.pressedKeysCount++

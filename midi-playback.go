@@ -206,7 +206,7 @@ func (app *application) playNextMidiEvent() {
 		} else {
 			log.Println("Track finished.")
 			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
-				app.sendAllNoteOff()
+				app.sendAllNoteOff(false)
 				return nil, nil
 			})
 		}
@@ -224,7 +224,7 @@ func (app *application) playNextMidiEvent() {
 		app.midiFileBuffer.nextEventTimer.Reset(nextNoteProgress - playbackProgress)
 		return
 	}
-	app.addMidiEvent(&midiRealtimeEvent{
+	app.addMidiEvent(&midiQueueEvent{
 		Time:              now.Add(-playbackProgress).Add(nextNoteProgress),
 		Message:           thisTrack[index].Message,
 		AlreadyTransposed: true,
@@ -268,7 +268,7 @@ func (app *application) setMidiPlaybackScheduler(enabled bool, startTime time.Ti
 func (app *application) resetMidiPlayback() {
 	log.Println("Reset playback.")
 	_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
-		app.sendAllNoteOff()
+		app.sendAllNoteOff(false)
 		return nil, nil
 	})
 	app.midiFileBuffer.nextEventIndex = 0
