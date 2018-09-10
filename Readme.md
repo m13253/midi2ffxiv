@@ -61,7 +61,7 @@ Click "Set" to stop playing, load your **performance MIDI file**.
 
 Discuss an official start time and set the scheduler.
 
-**Note: As of Patch 4.3, the latency between the performer and the audience is around 1500 ms. Therefore, you need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener)**
+**Note: As of Patch 4.3, the latency between the performer and the audience is around 1500 ms. MIDI2FFXIV mimics this behavior by adding configurable delay to MIDI output in non-realtime mode. Therefore, you need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener)**
 
 FAQ
 ---
