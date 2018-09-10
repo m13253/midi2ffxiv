@@ -39,16 +39,17 @@ type keybindingPreset struct {
 type preset struct {
 	ConfigFile string
 
-	IdleDuration         time.Duration
-	PlaybackExtraLatency time.Duration
-	RealtimeMaxLatency   time.Duration
-	SkillCooldown        time.Duration
-	ModifierCooldown     time.Duration
-	NtpSyncTimeout       time.Duration
-	NtpCooldown          time.Duration
-	MinTriggerVelocity   uint8
-	Keybinding           [128]keybindingPreset
-	EmergencyStop        *keybindingPreset
+	IdleDuration       time.Duration
+	PlaybackExtraDelay time.Duration
+	RealtimeMaxLatency time.Duration
+	PlaybackMaxLatency time.Duration
+	SkillCooldown      time.Duration
+	ModifierCooldown   time.Duration
+	NtpSyncTimeout     time.Duration
+	NtpCooldown        time.Duration
+	MinTriggerVelocity uint8
+	Keybinding         [128]keybindingPreset
+	EmergencyStop      *keybindingPreset
 
 	WebListenAddr string
 	WebUsername   string
@@ -56,15 +57,16 @@ type preset struct {
 }
 
 var defaultPreset = preset{
-	ConfigFile:           "midi2ffxiv.conf",
-	IdleDuration:         2500 * time.Millisecond,
-	PlaybackExtraLatency: 1500 * time.Millisecond,
-	RealtimeMaxLatency:   300 * time.Millisecond,
-	SkillCooldown:        125 * time.Millisecond,
-	ModifierCooldown:     50 * time.Millisecond,
-	NtpSyncTimeout:       5 * time.Second,
-	NtpCooldown:          10 * time.Second,
-	MinTriggerVelocity:   16,
+	ConfigFile:         "midi2ffxiv.conf",
+	IdleDuration:       2500 * time.Millisecond,
+	PlaybackExtraDelay: 1500 * time.Millisecond,
+	RealtimeMaxLatency: 300 * time.Millisecond,
+	PlaybackMaxLatency: 300 * time.Millisecond,
+	SkillCooldown:      125 * time.Millisecond,
+	ModifierCooldown:   50 * time.Millisecond,
+	NtpSyncTimeout:     5 * time.Second,
+	NtpCooldown:        10 * time.Second,
+	MinTriggerVelocity: 16,
 	Keybinding: [128]keybindingPreset{
 		0x30: {true, false, false, 'Q'},
 		0x31: {true, false, false, '2'},

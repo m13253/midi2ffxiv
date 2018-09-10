@@ -253,7 +253,7 @@ func (app *application) addMidiEvent(event *midiQueueEvent) {
 				if event.Realtime {
 					expiry = event.Time.Add(app.RealtimeMaxLatency)
 				} else {
-					expiry = event.Time.Add(app.SkillCooldown)
+					expiry = event.Time.Add(app.PlaybackMaxLatency)
 				}
 			}
 		}
@@ -274,7 +274,7 @@ func (app *application) addMidiEvent(event *midiQueueEvent) {
 				if event.Realtime {
 					expiry = event.Time.Add(app.RealtimeMaxLatency)
 				} else {
-					expiry = event.Time.Add(app.SkillCooldown)
+					expiry = event.Time.Add(app.PlaybackMaxLatency)
 				}
 			}
 		}

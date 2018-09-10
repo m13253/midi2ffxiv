@@ -84,7 +84,7 @@ func (app *application) produceKeystroke(event *midiQueueEvent) {
 		if event.Realtime {
 			app.midiOutQueue.AddAction(event, now)
 		} else {
-			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraDelay))
 		}
 		note := int(event.Message[1])
 		if event.AlreadyTransposed {
@@ -252,7 +252,7 @@ func (app *application) produceKeystroke(event *midiQueueEvent) {
 		if event.Realtime {
 			app.midiOutQueue.AddAction(event, now)
 		} else {
-			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraDelay))
 		}
 		if event.Realtime && !app.keyStatus.lastModifierTime.IsZero() && now.Sub(app.keyStatus.lastModifierTime) < app.ModifierCooldown {
 			if len(pInputs) != 0 {
@@ -289,7 +289,7 @@ func (app *application) produceKeystroke(event *midiQueueEvent) {
 		if event.Realtime {
 			app.midiOutQueue.AddAction(event, now)
 		} else {
-			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraDelay))
 		}
 		if len(event.Message) > 1 && event.Message[1] == 0x7b {
 			for i := 0; i < 256; i++ {
@@ -316,7 +316,7 @@ func (app *application) produceKeystroke(event *midiQueueEvent) {
 		if event.Realtime {
 			app.midiOutQueue.AddAction(event, now)
 		} else {
-			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraLatency))
+			app.midiOutQueue.AddAction(event, now.Add(app.PlaybackExtraDelay))
 		}
 	}
 	if len(pInputs) != 0 {
