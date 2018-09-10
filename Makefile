@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-all: midi2ffxiv.exe midi2ffxiv-$(shell date -u +%Y%m%d).zip
+all: midi2ffxiv.exe midi2ffxiv-$(shell date +%Y%m%d).zip
 
 clean:
 	rm -f -v midi2ffxiv.exe midi2ffxiv-????????.zip
