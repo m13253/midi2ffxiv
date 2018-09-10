@@ -45,6 +45,7 @@ type midiFileBuffer struct {
 	TicksPerBeat   uint16
 	nextEventIndex int
 	nextEventTimer *time.Timer
+	fastForward    bool
 }
 
 type midiFileTrack []*midiFileEvent
@@ -179,13 +180,17 @@ func (app *application) playNextMidiEvent(now time.Time) {
 		return
 	}
 	if int(app.MidiPlaybackTrack) >= len(app.midiFileBuffer.MidiTracks) {
-		log.Printf("Invalid track number (%d), max %d\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks)-1)
+		log.Printf("Invalid track number (%d), max %d.\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks)-1)
 		return
 	}
 	playbackProgress := now.Add(app.NtpClockOffset).Add(app.MidiPlaybackOffset).Sub(app.MidiPlaybackSchedule)
 	if playbackProgress < 0 {
 		app.midiFileBuffer.nextEventIndex = 0
 		app.midiFileBuffer.nextEventTimer.Reset(-playbackProgress)
+		if app.midiFileBuffer.fastForward {
+			log.Println("Fast-forward off.")
+			app.midiFileBuffer.fastForward = false
+		}
 		return
 	}
 	if app.MidiPlaybackLoopEnabled && app.MidiPlaybackLoop > 0 {
@@ -202,6 +207,10 @@ func (app *application) playNextMidiEvent(now time.Time) {
 			}
 			log.Printf("Will loop in %s\n", waitTime)
 			app.midiFileBuffer.nextEventTimer.Reset(waitTime)
+			if app.midiFileBuffer.fastForward {
+				log.Println("Fast-forward off.")
+				app.midiFileBuffer.fastForward = false
+			}
 		} else {
 			log.Println("Track finished.")
 			_ = app.MidiRealtimeGoro.SubmitNoWait(app.ctx, func(context.Context) (interface{}, error) {
@@ -221,11 +230,17 @@ func (app *application) playNextMidiEvent(now time.Time) {
 	nextNoteProgress := thisTrack[index].Microseconds.Duration()
 	if nextNoteProgress > playbackProgress {
 		app.midiFileBuffer.nextEventTimer.Reset(nextNoteProgress - playbackProgress)
+		if app.midiFileBuffer.fastForward {
+			log.Println("Fast-forward off.")
+			app.midiFileBuffer.fastForward = false
+		}
 		return
 	}
 	app.addMidiEvent(&midiQueueEvent{
 		Time:              now.Add(-playbackProgress).Add(nextNoteProgress),
 		Message:           thisTrack[index].Message,
+		Realtime:          false,
+		FastForward:       app.midiFileBuffer.fastForward,
 		AlreadyTransposed: true,
 	})
 	app.midiFileBuffer.nextEventIndex = index + 1
@@ -272,6 +287,10 @@ func (app *application) resetMidiPlayback() {
 	})
 	app.midiFileBuffer.nextEventIndex = 0
 	app.midiFileBuffer.nextEventTimer.Reset(0)
+	if !app.midiFileBuffer.fastForward {
+		log.Println("Fast-forward on.")
+		app.midiFileBuffer.fastForward = true
+	}
 }
 
 func (m midiFileAbsoluteTime) Duration() time.Duration {

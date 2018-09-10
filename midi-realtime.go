@@ -41,6 +41,7 @@ type midiQueueEvent struct {
 	Expiry            time.Time
 	Message           []byte
 	Realtime          bool
+	FastForward       bool
 	AlreadyTransposed bool
 }
 
@@ -238,6 +239,9 @@ func (app *application) addMidiEvent(event *midiQueueEvent) {
 		}
 	// Note on
 	case 0x90:
+		if event.FastForward {
+			return
+		}
 		note := int(filteredMessage[1])
 		if !event.AlreadyTransposed {
 			note += app.MidiOutTranspose
@@ -259,6 +263,9 @@ func (app *application) addMidiEvent(event *midiQueueEvent) {
 		}
 	// After touch
 	case 0xa0:
+		if event.FastForward {
+			return
+		}
 		note := int(filteredMessage[1])
 		if !event.AlreadyTransposed {
 			note += app.MidiOutTranspose
@@ -301,6 +308,7 @@ func (app *application) addMidiEvent(event *midiQueueEvent) {
 		Expiry:            expiry,
 		Message:           filteredMessage,
 		Realtime:          event.Realtime,
+		FastForward:       event.FastForward,
 		AlreadyTransposed: true,
 	}, event.Time, expiry)
 }
