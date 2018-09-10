@@ -247,11 +247,10 @@ func (app *application) setMidiPlaybackOffset(offset time.Duration) {
 	if int(app.MidiPlaybackTrack) >= len(app.midiFileBuffer.MidiTracks) {
 		return
 	}
-	thisTrack := app.midiFileBuffer.MidiTracks[app.MidiPlaybackTrack]
-	if app.midiFileBuffer.nextEventIndex >= len(thisTrack) {
+	if app.midiFileBuffer.nextEventIndex >= len(app.midiFileBuffer.MidiTracks[app.MidiPlaybackTrack]) {
 		app.midiFileBuffer.nextEventIndex = 0
-		app.midiFileBuffer.nextEventTimer.Reset(0)
 	}
+	app.midiFileBuffer.nextEventTimer.Reset(0)
 }
 
 func (app *application) getMidiPlaybackScheduler() (enabled bool, startTime time.Time, loopEnabled bool, loopInterval time.Duration) {
