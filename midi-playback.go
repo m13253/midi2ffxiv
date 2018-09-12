@@ -51,18 +51,18 @@ type midiFileBuffer struct {
 type midiFileTrack []*midiFileEvent
 
 type midiFileEvent struct {
-	TicksElapsed uint64
+	TicksElapsed int64
 	Microseconds midiFileAbsoluteTime
 	Message      []byte
 }
 
 type midiFileAbsoluteTime struct {
-	Numerator   uint64
+	Numerator   int64
 	Denominator uint16 // = TicksPerBeat
 }
 
 type tempoEntry struct {
-	TicksElapsed        uint64
+	TicksElapsed        int64
 	MicrosecondsPerBeat uint32
 }
 
@@ -104,25 +104,25 @@ func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
 		parsedTrack := parsedFile.GetTrack(uint16(trackID))
 		track := make([]*midiFileEvent, 0, parsedTrack.Len())
 
-		ticks := uint64(0)
-		msNumerator := uint64(0)
+		ticks := int64(0)
+		msNumerator := int64(0)
 		msDemonimator := division.GetTicks()
 		msPerBeat := uint32(500000)
 		nextTempoEntry := 0
 
 		for it := parsedTrack.GetIterator(); it.MoveNext(); {
 			event := it.GetValue()
-			delta := uint64(event.GetDTime())
+			delta := int64(event.GetDTime())
 
 			for nextTempoEntry < len(tempoTable) && ticks+delta > tempoTable[nextTempoEntry].TicksElapsed {
 				delta -= tempoTable[nextTempoEntry].TicksElapsed - ticks
-				msNumerator += (tempoTable[nextTempoEntry].TicksElapsed - ticks) * uint64(msPerBeat)
+				msNumerator += (tempoTable[nextTempoEntry].TicksElapsed - ticks) * int64(msPerBeat)
 				msPerBeat = tempoTable[nextTempoEntry].MicrosecondsPerBeat
 				ticks = tempoTable[nextTempoEntry].TicksElapsed
 				nextTempoEntry++
 			}
 
-			msNumerator += delta * uint64(msPerBeat)
+			msNumerator += delta * int64(msPerBeat)
 			ticks += delta
 
 			var message []byte
