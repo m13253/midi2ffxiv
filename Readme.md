@@ -85,6 +85,8 @@ If you select Track 1 but hear Track 2, try to type in "Track 0", that is a hidd
 
 After selecting the track, click "Copy" next to "Current time". Then click "Set" next to "Start time". The MIDI playback will begin in 5 seconds.
 
+To stop, either press "Set" again if you are on another computer, or press "Ctrl-Alt-Shift-\[" for an emergency stop.
+
 (Note: MIDI2FFXIV does not accept every MIDI file that you download from the Internet. Some will not play. If you know composing, I suggest you create your own MIDI file.)
 
 Multiplayer sync mode
