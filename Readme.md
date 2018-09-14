@@ -16,13 +16,15 @@ Start the program on your gaming PC, follow the process to open the control pane
 
 You may also open the control panel from your phone or another computer, as long as you know the IP address of your gaming PC.
 
-Features
---------
+Modes
+-----
 
 - Realtime solo mode
 - MIDI autoplay mode
 - Multiplayer sync mode
 
+Features
+--------
 
 - Web console: remote control with your phone / another computer (though some may think it's a disadvantage due to RAM consumption)
 - 125ms note queue: auto arpeggiator
@@ -96,15 +98,17 @@ First, click "Sync" next to "NTP server", wait 5 or 10 seconds for synchronizati
 
 Load your **rehearsal MIDI file**. Then select the track number.
 
-Discuss a rehearsal time with your partner, type in the "Start time", click "Set" to start the scheduler.
+Discuss a rehearsal time with your band leader, type in the "Start time", click "Set" to start the scheduler.
 
-During the rehearsal, adjust everyone's "Offset" value so your orchestra is in sync.
+During the rehearsal, the band leader adjusts everyone's "Offset" value so your orchestra is in sync.
 
 Click "Set" to stop playing, load your **performance MIDI file**.
 
 Discuss an official start time and set the scheduler.
 
-**Note: As of Patch 4.3, the latency between the performer and the audience is around 1500 ms. MIDI2FFXIV mimics this behavior by adding configurable delay to MIDI output in non-realtime mode. Therefore, you need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener)**
+**Note 1: As of Patch 4.3, the latency between the performer and the audience is around 1500 ms. MIDI2FFXIV mimics this behavior by adding configurable delay to MIDI output in non-realtime mode.**
+
+**Note 2: Band leader is very important! You need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener)**
 
 Local echo
 ----------
