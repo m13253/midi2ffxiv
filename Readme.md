@@ -6,9 +6,11 @@ Convert MIDI to bard performance of _Final Fantasy XIV: Stormblood_, featuring m
 Usage
 -----
 
+Download: [MIDI2FFXIV-########.zip](https://github.com/m13253/midi2ffxiv/releases).
+
 Current version of the program runs on 64-bit Windows platform, with FFXIV Patch 4.3.
 
-[Download a release](https://github.com/m13253/midi2ffxiv/releases), start the program on your gaming PC, follow the process to open the control panel. You will see this:
+Start the program on your gaming PC, follow the process to open the control panel. You will see this:
 
 ![Screenshot](screenshot.png)
 
