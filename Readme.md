@@ -81,15 +81,9 @@ MIDI autoplay mode
 
 First, load a MIDI file. You may find songs in [demo](demo). Then select the track number.
 
-- For Format-0 MIDI file, your song only stays in track 0.
+If you select Track 1 but hear Track 2, try to type in "Track 0", that is a hidden value.
 
-- For Format-1 MIDI file, track 0 is usually empty, your song stays in other tracks counting from 1.
-
-- For Format-2 MIDI file, your songs counts from track 0.
-
-After selecting the track, click "Copy" next to "Current time". Then click "Set" next to "Start time".
-
-The MIDI playback will begin in 5 seconds.
+After selecting the track, click "Copy" next to "Current time". Then click "Set" next to "Start time". The MIDI playback will begin in 5 seconds.
 
 (Note: MIDI2FFXIV does not accept every MIDI file that you download from the Internet. Some will not play. If you know composing, I suggest you create your own MIDI file.)
 

@@ -179,7 +179,11 @@ func (app *application) playNextMidiEvent(now time.Time) {
 	if !app.MidiPlaybackScheduleEnabled {
 		return
 	}
-	if int(app.MidiPlaybackTrack) >= len(app.midiFileBuffer.MidiTracks) {
+	track := app.MidiPlaybackTrack
+	if len(app.midiFileBuffer.MidiTracks) == 1 {
+		track = 0
+	}
+	if int(track) >= len(app.midiFileBuffer.MidiTracks) {
 		log.Printf("Invalid track number (%d), max %d.\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks)-1)
 		return
 	}
@@ -197,7 +201,7 @@ func (app *application) playNextMidiEvent(now time.Time) {
 		playbackProgress %= app.MidiPlaybackLoop
 	}
 	index := app.midiFileBuffer.nextEventIndex
-	thisTrack := app.midiFileBuffer.MidiTracks[app.MidiPlaybackTrack]
+	thisTrack := app.midiFileBuffer.MidiTracks[track]
 	if index >= len(thisTrack) {
 		if app.MidiPlaybackLoopEnabled {
 			app.midiFileBuffer.nextEventIndex = 0
@@ -258,10 +262,14 @@ func (app *application) setMidiPlaybackTrack(trackNumber uint16) {
 func (app *application) setMidiPlaybackOffset(offset time.Duration) {
 	fmt.Printf("Set playback offset to %s.\n", offset)
 	app.MidiPlaybackOffset = offset
-	if int(app.MidiPlaybackTrack) >= len(app.midiFileBuffer.MidiTracks) {
+	track := app.MidiPlaybackTrack
+	if len(app.midiFileBuffer.MidiTracks) == 1 {
+		track = 0
+	}
+	if int(track) >= len(app.midiFileBuffer.MidiTracks) {
 		return
 	}
-	if app.midiFileBuffer.nextEventIndex >= len(app.midiFileBuffer.MidiTracks[app.MidiPlaybackTrack]) {
+	if app.midiFileBuffer.nextEventIndex >= len(app.midiFileBuffer.MidiTracks[track]) {
 		app.midiFileBuffer.nextEventIndex = 0
 	}
 	app.midiFileBuffer.nextEventTimer.Reset(0)
