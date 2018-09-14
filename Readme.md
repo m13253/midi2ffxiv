@@ -23,6 +23,7 @@ Features
 - MIDI autoplay mode
 - Multiplayer sync mode
 
+
 - Web console: remote control with your phone / another computer (though some may think it's a disadvantage due to RAM consumption)
 - 125ms note queue: auto arpeggiator
 - Local MIDI echo: listen to your performance you have a low-latency hardware synthesizer
