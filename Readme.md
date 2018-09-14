@@ -38,10 +38,10 @@ Showcase
 Keybinding
 ----------
 
-Two keybinding presets are included, the default `midi2ffxiv.conf` and the alternate `midi2ffxiv\_no\_modifier.conf`.
+Two keybinding presets are included, the default `midi2ffxiv.conf` and the alternate `midi2ffxiv_no_modifier.conf`.
 
 - `midi2ffxiv.conf` uses Ctrl and Shift to switch octaves, but the may have issues when the frame rate is low.
-- `midi2ffxiv\_no\_modifier.conf` uses a full-key map keybinding, you need to change your keybinding:
+- `midi2ffxiv_no_modifier.conf` uses a full-key map keybinding, you need to change your keybinding:
 
 |      | C | D  | E  | F  | G  | A | B | C+1 |
 |------|---|----|----|----|----|---|---|-----|
