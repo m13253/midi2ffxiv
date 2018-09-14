@@ -19,7 +19,7 @@ You may also open the control panel from your phone or another computer, as long
 Modes
 -----
 
-- Realtime solo mode
+- Manual solo mode
 - MIDI autoplay mode
 - Multiplayer sync mode
 
@@ -63,8 +63,8 @@ Two keybinding presets are included, the default `midi2ffxiv.conf` and the alter
 
 For whichever you want to use, rename it to `midi2ffxiv.conf` so it will be active.
 
-Realtime solo mode
-------------------
+Manual solo mode
+----------------
 
 If you want to perform with your MIDI keyboard or MIDI controller. Select your MIDI device from "Input devices".
 
