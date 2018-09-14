@@ -19,6 +19,10 @@ You may also open the control panel from your phone or another computer, as long
 Features
 --------
 
+- Realtime solo mode
+- MIDI autoplay mode
+- Multiplayer sync mode
+
 - Web console: remote control with your phone / another computer (though some may think it's a disadvantage due to RAM consumption)
 - 125ms note queue: auto arpeggiator
 - Local MIDI echo: listen to your performance you have a low-latency hardware synthesizer
@@ -56,8 +60,8 @@ Two keybinding presets are included, the default `midi2ffxiv.conf` and the alter
 
 For whichever you want to use, rename it to `midi2ffxiv.conf` so it will be active.
 
-Realtime Performance
---------------------
+Realtime solo mode
+------------------
 
 If you want to perform with your MIDI keyboard or MIDI controller. Select your MIDI device from "Input devices".
 
@@ -67,8 +71,8 @@ Then start performing! Be careful not to play notes too fast, since you may expe
 
 **Note: For realtime performance, MIDI2FFXIV restricts the distance between any two notes to at least 125 ms. This is also the restriction of the game, although you can change the value in [midi2ffxiv.conf](midi2ffxiv.conf).**
 
-Automatic Performance
----------------------
+MIDI autoplay mode
+------------------
 
 First, load a MIDI file. You may find songs in [demo](demo). Then select the track number.
 
@@ -84,8 +88,8 @@ The MIDI playback will begin in 5 seconds.
 
 **Note: MIDI2FFXIV does not accept every MIDI file that you download from the Internet. Some will not play. If you know composing, I suggest you create your own MIDI file.**
 
-Multiplayer Synced Performance
-------------------------------
+Multiplayer sync mode
+---------------------
 
 First, click "Sync" next to "NTP server", wait 5 or 10 seconds for synchronization to succeed.
 
