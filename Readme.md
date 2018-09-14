@@ -117,8 +117,6 @@ FAQ
 
    The default keybinding is stored in [midi2ffxiv.conf](midi2ffxiv.conf). Open it with Notepad and play around with it.
 
-   An alternative keybinding without Ctrl, Alt, Shift is in [midi2ffxiv\_no\_modifier.conf](midi2ffxiv_no_modifier.conf). If you want to use it, rename it to [midi2ffxiv.conf](midi2ffxiv.conf).
-
    Note: For any non-alphanumeric keys, please look up the [Virtual-Key Codes](https://docs.microsoft.com/en-us/windows/desktop/inputdev/virtual-key-codes) table for key codes.
 
 2. **Will I get banned for using MIDI2FFXIV?**
