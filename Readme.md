@@ -181,6 +181,6 @@ This program is licensed under MIT License.
 
 For more information, please refer to [LICENSE](LICENSE).
 
-Demo songs in [demo](demo) directory may have separate licensing information, please refer to [demo/README.txt](demo/README.txt).
-
 FINAL FANTASY is a registered trademark of Square Enix Holdings Co., Ltd.
+
+Demo songs in [demo](demo) directory may have separate licensing information, please refer to [demo/README.txt](demo/README.txt).
