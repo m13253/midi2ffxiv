@@ -14,16 +14,52 @@ Current version of the program runs on 64-bit Windows platform, with FFXIV Patch
 
 You may also open the control panel from your phone or another computer, as long as you know the IP address of your gaming PC.
 
+Features
+--------
+
+- Web console: remote control with your phone / another computer (though some may think it's a disadvantage due to RAM consumption)
+- 125ms note queue: auto arpeggiator
+- Local MIDI echo: listen to your performance you have a low-latency hardware synthesizer
+- Dumb-note fix: workaround a bug in Patch 4.3
+- NTP clock sync: build your band across miles!
+- Manual clock sync: a band always needs a human bandleader
+- Scheduled autoplay and looping
+- 1500ms delayed playback in multiplayer sync mode (You would know what I am talking about if you tried to play in sync before)
+
+Showcase
+--------
+
+"Saltswept" synced duet: <https://www.youtube.com/watch?v=2n6HCc1FdsQ>
+
+"Prelude" synced duet: <https://www.youtube.com/watch?v=yINX3F7jKkU>
+
+Keybinding
+----------
+
+Two keybinding presets are included, the default `midi2ffxiv.conf` and the alternate `midi2ffxiv\_no\_modifier.conf`.
+
+- `midi2ffxiv.conf` uses Ctrl and Shift to switch octaves, but the may have issues when the frame rate is low.
+- `midi2ffxiv\_no\_modifier.conf` uses a full-key map keybinding, you need to change your keybinding:
+
+|      | C | D  | E  | F  | G  | A | B | C+1 |
+|------|---|----|----|----|----|---|---|-----|
+| High | A | D  | G  | H  | K  | ; | - | =   |
+| Mid  | Q | W  | E  | R  | T  | Y | U |     |
+| Low  | Z | C  | B  | N  | ,  | / | ] |     |
+|      |   |    |    |    |    |   |   |     |
+|      | C | Eb | F# | G# | Bb |   |   |     |
+| High | S | F  | J  | L  | '  |   |   |     |
+| Mid  | 2 | 3  | 5  | 6  | 7  |   |   |     |
+| Low  | X | V  | M  | .  | \[ |   |   |     |
+
+For whichever you want to use, rename it to `midi2ffxiv.conf` so it will be active.
+
 Realtime Performance
 --------------------
 
 If you want to perform with your MIDI keyboard or MIDI controller. Select your MIDI device from "Input devices".
 
-If you have a local synthesizer (e.g. [VirtualMIDISynth](https://coolsoft.altervista.org/en/virtualmidisynth)) and you want to use it, select it from "Output devices". Then select an instrument to match your in-game performance.
-
-If you use VirtualMIDISynth, you can reduce the buffer time to 5 - 10 ms for lower latency.
-
-Adjust the volume on your MIDI controller so you can hear from both the game and the synthesizer.
+Optional: If you want to use the local echo feature (see below for deatils), select your synth from "Output devices". Select an instrument. Adjust the volume on your MIDI controller so you can hear from both the game and the synthesizer.
 
 Then start performing! Be careful not to play notes too fast, since you may experience latency or note loss if there are less than 125 ms between notes.
 
@@ -63,6 +99,15 @@ Discuss an official start time and set the scheduler.
 
 **Note: As of Patch 4.3, the latency between the performer and the audience is around 1500 ms. MIDI2FFXIV mimics this behavior by adding configurable delay to MIDI output in non-realtime mode. Therefore, you need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener)**
 
+Local echo
+----------
+
+This is an optional feature. If you have a local synthesizer with lower latency than the game, you can use it to produce sound, instead of the game.
+
+Usually it is useful if you have a hardware synth, but software synth also works. (e.g. [VirtualMIDISynth](https://coolsoft.altervista.org/en/virtualmidisynth))
+
+If you use VirtualMIDISynth, you can reduce its buffer time to 5 - 10 ms for lower latency.
+
 FAQ
 ---
 
@@ -79,6 +124,11 @@ FAQ
    I guess you will not. I don't see any words prohibiting the use of MIDI.
 
    But remember, please do not burden the server by loading crazy MIDI files, and do not post any video of performing the song "Answers / Dragonsong / Revolutions" otherwise you will get copyright infringement takedown.
+
+   Also, please add the following notice to your uploaded video:
+   ```
+   FINAL FANTASY XIV © 2010 - 2018 SQUARE ENIX CO., LTD. All Rights Reserved.
+   ```
 
 3. **Why does MIDI2FFXIV require administrative rights?**
 
