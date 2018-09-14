@@ -23,6 +23,8 @@ Modes
 - MIDI autoplay mode
 - Multiplayer sync mode
 
+(Note: In multiplayer sync, the performers sync to the pedestrians. Suitable for public live. But the performers themselves can't hear the music.)
+
 Features
 --------
 
@@ -72,7 +74,7 @@ Optional: If you want to use the local echo feature (see below for deatils), sel
 
 Then start performing! Be careful not to play notes too fast, since you may experience latency or note loss if there are less than 125 ms between notes.
 
-**Note: For realtime performance, MIDI2FFXIV restricts the distance between any two notes to at least 125 ms. This is also the restriction of the game, although you can change the value in [midi2ffxiv.conf](midi2ffxiv.conf).**
+(Note: For realtime performance, MIDI2FFXIV restricts the distance between any two notes to at least 125 ms. This is also the restriction of the game, although you can change the value in [midi2ffxiv.conf](midi2ffxiv.conf).)
 
 MIDI autoplay mode
 ------------------
@@ -89,7 +91,7 @@ After selecting the track, click "Copy" next to "Current time". Then click "Set"
 
 The MIDI playback will begin in 5 seconds.
 
-**Note: MIDI2FFXIV does not accept every MIDI file that you download from the Internet. Some will not play. If you know composing, I suggest you create your own MIDI file.**
+(Note: MIDI2FFXIV does not accept every MIDI file that you download from the Internet. Some will not play. If you know composing, I suggest you create your own MIDI file.)
 
 Multiplayer sync mode
 ---------------------
@@ -106,9 +108,9 @@ Click "Set" to stop playing, load your **performance MIDI file**.
 
 Discuss an official start time and set the scheduler.
 
-**Note 1: As of Patch 4.3, the latency between the performer and the audience is around 1500 ms. MIDI2FFXIV mimics this behavior by adding configurable delay to MIDI output in non-realtime mode.**
+(Note 1: As of Patch 4.3, the latency between the performer and the audience is around 1500 ms. MIDI2FFXIV mimics this behavior by adding configurable delay to MIDI output in non-realtime mode.)
 
-**Note 2: Band leader is very important! You need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener)**
+(Note 2: Band leader is very important! You need at least 3 persons to adjust syncing settings. (2+ performers, 1 listener))
 
 Local echo
 ----------
