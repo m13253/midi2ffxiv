@@ -52,6 +52,19 @@ Part 3:    Transpose   0, recommended: Harp
 Part 4:    Transpose -12, recommended: Steel Guitar
 
 
+# Lunacy.mid
+
+Song name: 狂える月夜 ~蛮神ツクヨミ討滅戦~ (Solo mix)
+           Lunacy (Solo mix)
+Original:  祖堅正慶 (Masayoshi Soken)
+Arrange:   Star Brilliant
+Copyright: Square Enix Co. Ltd., all rights reserved.
+Run time:  2:40
+
+Part 1:    Transpose   0, recommended: Harp (melody + accompany)
+Part 2:    Transpose +12, recommended: Flute (main melody)
+
+
 # Prelude.mid
 
 Song name: プレリュード (Relay mix)

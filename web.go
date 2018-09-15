@@ -101,13 +101,14 @@ func (app *application) startWebServer() error {
 
 	h.server.Addr = availableAddr.String()
 	if len(availableAddr.IP) == 0 || availableAddr.IP.IsUnspecified() {
-		fmt.Printf("\nPlease open the control panel at http://localhost:%d\n\n", availableAddr.Port)
+		fmt.Printf("To use this program, please open your web browser (Chrome / Firefox),\n  and navigate to http://localhost:%d\n\n", availableAddr.Port)
 	} else {
-		fmt.Printf("\nPlease open the control panel at http://%s\n\n", h.server.Addr)
+		fmt.Printf("To use this program, please open your web browser (Chrome / Firefox),\n  and navigate to http://%s\n\n", h.server.Addr)
 	}
 	if h.app.WebUsername != "" || h.app.WebPassword != "" {
 		fmt.Printf("Username: %s\nPassword: %s\n\n", h.app.WebUsername, h.app.WebPassword)
 	}
+	fmt.Println("(Debugging messages will be printed below,\n  please attach the messages with your bug report.)")
 
 	go h.waitForQuit()
 	go func() {
