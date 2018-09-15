@@ -187,7 +187,7 @@ func (app *application) playNextMidiEvent(now time.Time) {
 		log.Printf("Invalid track number (%d), max %d.\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks)-1)
 		return
 	}
-	playbackProgress := now.Add(app.NtpClockOffset).Add(app.MidiPlaybackOffset).Sub(app.MidiPlaybackSchedule)
+	playbackProgress := now.Add(app.NtpClockOffset).Add(app.MidiPlaybackOffset).Add(app.ModifierCooldown).Sub(app.MidiPlaybackSchedule)
 	if playbackProgress < 0 {
 		app.midiFileBuffer.nextEventIndex = 0
 		app.midiFileBuffer.nextEventTimer.Reset(-playbackProgress)
