@@ -1,3 +1,7 @@
+Note: The recommended instrument is only "recommended". If you want to use
+      other instruments, make sure you edit the transpose value.
+
+
 # Bach Prelude.mid
 
 Song name: Prelude in C Major (BWV 846)
