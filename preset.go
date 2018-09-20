@@ -40,6 +40,7 @@ type preset struct {
 	ConfigFile string
 
 	IdleDuration       time.Duration
+	RealtimeExtraDelay time.Duration
 	PlaybackExtraDelay time.Duration
 	RealtimeMaxLatency time.Duration
 	PlaybackMaxLatency time.Duration
@@ -59,7 +60,8 @@ type preset struct {
 var defaultPreset = preset{
 	ConfigFile:         "midi2ffxiv.conf",
 	IdleDuration:       1000 * time.Millisecond,
-	PlaybackExtraDelay: 1500 * time.Millisecond,
+	RealtimeExtraDelay: 0 * time.Millisecond,
+	PlaybackExtraDelay: 2000 * time.Millisecond,
 	RealtimeMaxLatency: 300 * time.Millisecond,
 	PlaybackMaxLatency: 300 * time.Millisecond,
 	SkillCooldown:      125 * time.Millisecond,
