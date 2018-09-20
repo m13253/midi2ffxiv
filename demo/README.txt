@@ -28,6 +28,17 @@ Part 3:    Transpose +12, recommended: Flute
 Part 4:    Transpose +12, recommended: Flute
 
 
+# Canon in D Solo.mid
+
+Song name: Canon in D Solo (PWC 37, T. 337, PC 358)
+Original:  Johann Pachelbel
+Arrange:   Star Brilliant, inspired by "London Symphony Orchestra Plays Great Classics"
+Copyright: Creative Commons Attribution-NonCommercial 4.0
+Run time:  4:07
+
+Part 1:    Transpose   0, recommended: Harp
+
+
 # Fur Elise.mid
 
 Song name: Für Elise
