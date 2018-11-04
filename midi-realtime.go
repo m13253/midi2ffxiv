@@ -52,7 +52,7 @@ func (app *application) processMidiRealtime() {
 			if !ok {
 				return
 			}
-			_ = cgc.RunOneRequest(app.ctx, r)
+			cgc.RunOneRequest(app.ctx, r)
 		case nextAction := <-app.midiOutQueue.NextAction():
 			nextEvent := nextAction.Value.(*midiQueueEvent)
 			err := app.sendMidiOutMessage(nextEvent)

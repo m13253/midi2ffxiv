@@ -76,7 +76,7 @@ func (app *application) processMidiPlayback() {
 			if !ok {
 				return
 			}
-			_ = cgc.RunOneRequest(app.ctx, r)
+			cgc.RunOneRequest(app.ctx, r)
 		case now := <-app.midiFileBuffer.nextEventTimer.C:
 			app.playNextMidiEvent(now)
 		case <-app.ctx.Done():

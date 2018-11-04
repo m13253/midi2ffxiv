@@ -65,7 +65,7 @@ func (app *application) processKeystrokes() {
 			if !ok {
 				return
 			}
-			_ = cgc.RunOneRequest(app.ctx, r)
+			cgc.RunOneRequest(app.ctx, r)
 		case nextAction := <-app.keystrokeQueue.NextAction():
 			nextEvent := nextAction.Value.(*midiQueueEvent)
 			app.produceKeystroke(nextEvent)
