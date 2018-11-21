@@ -98,7 +98,7 @@ func main() {
 		for {
 			var left, right *NoteOnRecord
 			for i := 0; i < len(records)-1; i++ {
-				if records[i+1].NewTime-records[i].NewTime < SkillCooldown {
+				if records[i+1].NewTime-records[i].NewTime < SkillCooldown+time.Millisecond {
 					if left == nil || right == nil || records[i+1].NewTime-records[i].NewTime < right.NewTime-left.NewTime {
 						left = records[i]
 						right = records[i+1]
