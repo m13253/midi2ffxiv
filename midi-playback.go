@@ -27,43 +27,24 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"time"
 
-	"github.com/algoGuy/EasyMIDI/smf"
-	"github.com/algoGuy/EasyMIDI/smfio"
-	"github.com/algoGuy/EasyMIDI/vlq"
 	cgc "github.com/m13253/cgc-go"
+	"github.com/m13253/midimark"
 )
 
 type midiFileBuffer struct {
-	MidiTracks     []midiFileTrack
-	TempoTable     []tempoEntry
-	TicksPerBeat   uint16
+	sequence       *midimark.Sequence
 	nextEventIndex int
 	nextEventTimer *time.Timer
 	fastForward    bool
 }
 
-type midiFileTrack []*midiFileEvent
-
-type midiFileEvent struct {
-	TicksElapsed int64
-	Microseconds midiFileAbsoluteTime
-	Message      []byte
-}
-
-type midiFileAbsoluteTime struct {
-	Numerator   int64
-	Denominator uint16 // = TicksPerBeat
-}
-
-type tempoEntry struct {
-	TicksElapsed        int64
-	MicrosecondsPerBeat uint32
+func (app *application) warningCallback(err error) {
+	log.Println(err)
 }
 
 func (app *application) processMidiPlayback() {
@@ -85,93 +66,14 @@ func (app *application) processMidiPlayback() {
 	}
 }
 
-func (app *application) setMidiPlaybackFile(midiFile io.Reader) error {
+func (app *application) setMidiPlaybackFile(midiFile io.ReadSeeker) error {
 	var err error
-	parsedFile, err := smfio.Read(midiFile)
+
+	sequence, err := midimark.DecodeSequenceFromSMF(midiFile, app.warningCallback)
 	if err != nil {
 		return err
 	}
-	midiTracks := make([]midiFileTrack, parsedFile.GetTracksNum())
-	tempoTable := []tempoEntry{}
-	division := parsedFile.GetDivision()
-	if division.IsSMTPE() {
-		return errors.New("MIDI with SMTPE timestamps is unsupported")
-	}
-	for trackID := range midiTracks {
-		if parsedFile.GetFormat() == smf.Format2 {
-			tempoTable = []tempoEntry{}
-		}
-		parsedTrack := parsedFile.GetTrack(uint16(trackID))
-		track := make([]*midiFileEvent, 0, parsedTrack.Len())
-
-		ticks := int64(0)
-		msNumerator := int64(0)
-		msDemonimator := division.GetTicks()
-		msPerBeat := uint32(500000)
-		nextTempoEntry := 0
-
-		for it := parsedTrack.GetIterator(); it.MoveNext(); {
-			event := it.GetValue()
-			delta := int64(event.GetDTime())
-
-			for nextTempoEntry < len(tempoTable) && ticks+delta > tempoTable[nextTempoEntry].TicksElapsed {
-				delta -= tempoTable[nextTempoEntry].TicksElapsed - ticks
-				msNumerator += (tempoTable[nextTempoEntry].TicksElapsed - ticks) * int64(msPerBeat)
-				msPerBeat = tempoTable[nextTempoEntry].MicrosecondsPerBeat
-				ticks = tempoTable[nextTempoEntry].TicksElapsed
-				nextTempoEntry++
-			}
-
-			msNumerator += delta * int64(msPerBeat)
-			ticks += delta
-
-			var message []byte
-
-			switch event.(type) {
-			case *smf.MIDIEvent:
-				message = []byte{event.GetStatus()}
-				message = append(message, event.GetData()...)
-
-			case *smf.MetaEvent:
-				message = []byte{smf.MetaStatus, event.(*smf.MetaEvent).GetMetaType()}
-				message = append(message, vlq.GetBytes(uint32(len(event.GetData())))...)
-				message = append(message, event.GetData()...)
-
-				if len(message) > 2 && message[1] == smf.MetaSetTempo {
-					if len(message) != 6 || message[2] != 3 {
-						return errors.New("Unrecognized MIDI tempo settings")
-					}
-					msPerBeat = (uint32(message[3]) << 16) | (uint32(message[4]) << 8) | uint32(message[5])
-					tempoTable = append(tempoTable, tempoEntry{
-						TicksElapsed:        ticks,
-						MicrosecondsPerBeat: msPerBeat,
-					})
-				}
-
-			case *smf.SysexEvent:
-				message = []byte{event.GetStatus()}
-				message = append(message, vlq.GetBytes(uint32(len(event.GetData())))...)
-				message = append(message, event.GetData()...)
-
-			default:
-				return errors.New("Unrecognized MIDI event")
-			}
-
-			track = append(track, &midiFileEvent{
-				TicksElapsed: ticks,
-				Microseconds: midiFileAbsoluteTime{
-					msNumerator,
-					msDemonimator,
-				},
-				Message: message,
-			})
-		}
-
-		midiTracks[trackID] = track
-	}
-	app.midiFileBuffer.MidiTracks = midiTracks
-	app.midiFileBuffer.TempoTable = tempoTable
-	app.midiFileBuffer.TicksPerBeat = division.GetTicks()
+	app.midiFileBuffer.sequence = sequence
 	return nil
 }
 
@@ -180,11 +82,15 @@ func (app *application) playNextMidiEvent(now time.Time) {
 		return
 	}
 	track := app.MidiPlaybackTrack
-	if len(app.midiFileBuffer.MidiTracks) == 1 {
+	if len(app.midiFileBuffer.sequence.Tracks) == 0 {
+		log.Println("MIDI file contains no track.")
+		return
+	}
+	if len(app.midiFileBuffer.sequence.Tracks) == 1 {
 		track = 0
 	}
-	if int(track) >= len(app.midiFileBuffer.MidiTracks) {
-		log.Printf("Invalid track number (%d), max %d.\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.MidiTracks)-1)
+	if int(track) >= len(app.midiFileBuffer.sequence.Tracks) {
+		log.Printf("Invalid track number (%d), max %d.\n", app.MidiPlaybackTrack, len(app.midiFileBuffer.sequence.Tracks)-1)
 		return
 	}
 	playbackProgress := now.Add(app.NtpClockOffset).Add(app.MidiPlaybackOffset).Add(app.ModifierCooldown).Sub(app.MidiPlaybackSchedule)
@@ -201,8 +107,8 @@ func (app *application) playNextMidiEvent(now time.Time) {
 		playbackProgress %= app.MidiPlaybackLoop
 	}
 	index := app.midiFileBuffer.nextEventIndex
-	thisTrack := app.midiFileBuffer.MidiTracks[track]
-	if index >= len(thisTrack) {
+	thisTrack := app.midiFileBuffer.sequence.Tracks[track]
+	if index >= len(thisTrack.Events) {
 		if app.MidiPlaybackLoopEnabled {
 			app.midiFileBuffer.nextEventIndex = 0
 			waitTime := app.MidiPlaybackLoop - playbackProgress
@@ -225,13 +131,13 @@ func (app *application) playNextMidiEvent(now time.Time) {
 		return
 	}
 	if index > 0 {
-		lastNoteProgress := thisTrack[index-1].Microseconds.Duration()
+		lastNoteProgress := thisTrack.ConvertAbsTickToDuration(thisTrack.Events[index-1].Common().AbsTick)
 		if lastNoteProgress > playbackProgress {
 			app.resetMidiPlayback()
 			return
 		}
 	}
-	nextNoteProgress := thisTrack[index].Microseconds.Duration()
+	nextNoteProgress := thisTrack.ConvertAbsTickToDuration(thisTrack.Events[index].Common().AbsTick)
 	if nextNoteProgress > playbackProgress {
 		app.midiFileBuffer.nextEventTimer.Reset(nextNoteProgress - playbackProgress)
 		if app.midiFileBuffer.fastForward {
@@ -240,13 +146,20 @@ func (app *application) playNextMidiEvent(now time.Time) {
 		}
 		return
 	}
-	app.addMidiEvent(&midiQueueEvent{
-		Time:              now.Add(-playbackProgress).Add(nextNoteProgress),
-		Message:           thisTrack[index].Message,
-		Realtime:          false,
-		FastForward:       app.midiFileBuffer.fastForward,
-		AlreadyTransposed: true,
-	})
+	message, err := thisTrack.Events[index].EncodeRealtime()
+	if err != nil {
+		log.Println(err)
+		// fall-through
+	}
+	if len(message) != 0 {
+		app.addMidiEvent(&midiQueueEvent{
+			Time:              now.Add(-playbackProgress).Add(nextNoteProgress),
+			Message:           message,
+			Realtime:          false,
+			FastForward:       app.midiFileBuffer.fastForward,
+			AlreadyTransposed: true,
+		})
+	}
 	app.midiFileBuffer.nextEventIndex = index + 1
 	app.midiFileBuffer.nextEventTimer.Reset(0)
 }
@@ -263,13 +176,13 @@ func (app *application) setMidiPlaybackOffset(offset time.Duration) {
 	fmt.Printf("Set playback offset to %s.\n", offset)
 	app.MidiPlaybackOffset = offset
 	track := app.MidiPlaybackTrack
-	if len(app.midiFileBuffer.MidiTracks) == 1 {
+	if len(app.midiFileBuffer.sequence.Tracks) == 1 {
 		track = 0
 	}
-	if int(track) >= len(app.midiFileBuffer.MidiTracks) {
+	if int(track) >= len(app.midiFileBuffer.sequence.Tracks) {
 		return
 	}
-	if app.midiFileBuffer.nextEventIndex >= len(app.midiFileBuffer.MidiTracks[track]) {
+	if app.midiFileBuffer.nextEventIndex >= len(app.midiFileBuffer.sequence.Tracks[track].Events) {
 		app.midiFileBuffer.nextEventIndex = 0
 	}
 	app.midiFileBuffer.nextEventTimer.Reset(0)
@@ -299,8 +212,4 @@ func (app *application) resetMidiPlayback() {
 		log.Println("Fast-forward on.")
 		app.midiFileBuffer.fastForward = true
 	}
-}
-
-func (m midiFileAbsoluteTime) Duration() time.Duration {
-	return time.Duration(m.Numerator) * time.Microsecond / time.Duration(m.Denominator)
 }

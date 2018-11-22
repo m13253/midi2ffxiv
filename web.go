@@ -39,6 +39,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/mattetti/filebuffer"
 )
 
 type webHandlers struct {
@@ -367,8 +369,15 @@ func (h *webHandlers) ntpSyncServer(w http.ResponseWriter, r *http.Request) {
 
 func (h *webHandlers) midiPlaybackFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "PUT" {
-		_, err := h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
-			return nil, h.app.setMidiPlaybackFile(r.Body)
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Println("Error: ", err)
+			http.Error(w, err.Error(), 503)
+			return
+		}
+		buffer := filebuffer.New(body)
+		_, err = h.app.MidiPlaybackGoro.Submit(h.app.ctx, func(context.Context) (interface{}, error) {
+			return nil, h.app.setMidiPlaybackFile(buffer)
 		})
 		if err != nil {
 			log.Println("Error: ", err)
@@ -401,6 +410,11 @@ func (h *webHandlers) midiPlaybackTrack(w http.ResponseWriter, r *http.Request) 
 			h.app.setMidiPlaybackTrack(uint16(value))
 			return nil, nil
 		})
+		if err != nil {
+			log.Println("Error: ", err)
+			http.Error(w, err.Error(), 400)
+			return
+		}
 	}
 
 	var result struct {
@@ -431,6 +445,11 @@ func (h *webHandlers) midiPlaybackOffset(w http.ResponseWriter, r *http.Request)
 			h.app.setMidiPlaybackOffset(time.Duration(value*1e9) * time.Nanosecond)
 			return nil, nil
 		})
+		if err != nil {
+			log.Println("Error: ", err)
+			http.Error(w, err.Error(), 400)
+			return
+		}
 	}
 
 	var result struct {
