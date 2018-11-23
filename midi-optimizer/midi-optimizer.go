@@ -27,7 +27,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/m13253/midimark"
@@ -49,16 +51,41 @@ func warningCallback(err error) {
 	log.Println(err)
 }
 
+func newProgressTicker() (*time.Ticker, <-chan time.Time) {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	c := make(chan time.Time, 1)
+	go func() {
+		for t := range ticker.C {
+			select {
+			case c <- t:
+			default:
+			}
+		}
+	}()
+	return ticker, c
+}
+
 func main() {
 	var input, output *os.File
 	var err error
 	switch len(os.Args) {
 	case 0:
-		fmt.Print("Usage: midi-optimizer INPUT.mid OUTPUT.mid\n\n")
+		fmt.Print("Usage: midi-optimizer INPUT.mid [OUTPUT.mid]\n\n")
 		os.Exit(1)
-	case 1, 2:
+	case 1:
 		fmt.Printf("Usage: %s INPUT.mid OUTPUT.mid\n\n", os.Args[0])
 		os.Exit(1)
+	case 2:
+		input, err = os.Open(os.Args[1])
+		if err != nil {
+			log.Fatalln(err)
+		}
+		defer input.Close()
+		output, err = os.Create(strings.TrimSuffix(os.Args[1], filepath.Ext(os.Args[1])) + "-ffxiv.mid")
+		if err != nil {
+			log.Fatalln(err)
+		}
+		defer output.Close()
 	case 3:
 		input, err = os.Open(os.Args[1])
 		if err != nil {
@@ -75,7 +102,8 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	for _, mtrk := range seq.Tracks {
+	progressTicker, progressChan := newProgressTicker()
+	for trackID, mtrk := range seq.Tracks {
 		records := make([]*NoteOnRecord, 0)
 		for _, event := range mtrk.Events {
 			if ev, ok := event.(*midimark.EventNoteOn); ok {
@@ -95,28 +123,56 @@ func main() {
 				(records[i].OldTick == records[j].OldTick && records[i].Event.Key < records[j].Event.Key) ||
 				(records[i].OldTick == records[j].OldTick && records[i].Event.Key == records[j].Event.Key && records[i].Event.FilePosition == records[j].Event.FilePosition)
 		})
-		for {
-			var left, right *NoteOnRecord
+		totalUnresolved := 0
+		var round int64
+		for round = 0; true; round++ {
+			numUnresolved := 0
+			left, right := -1, -1
 			for i := 0; i < len(records)-1; i++ {
-				if records[i+1].NewTime-records[i].NewTime < SkillCooldown+time.Millisecond {
-					if left == nil || right == nil || records[i+1].NewTime-records[i].NewTime < right.NewTime-left.NewTime {
-						left = records[i]
-						right = records[i+1]
+				if records[i+1].NewTime-records[i].NewTime < SkillCooldown {
+					numUnresolved++
+					if left < 0 || right < 0 || records[i+1].NewTime-records[i].NewTime < records[right].NewTime-records[left].NewTime {
+						left = i
+						right = i + 1
 					}
 				}
 			}
-			if left == nil || right == nil {
+			select {
+			case <-progressChan:
+				if numUnresolved != 1 {
+					fmt.Printf("\rTrack %d/%d, round #%d, %d conflicts unresolved.  ", trackID+1, len(seq.Tracks), round, numUnresolved)
+				} else {
+					fmt.Printf("\rTrack %d/%d, round #%d, %d conflict unresolved.  ", trackID+1, len(seq.Tracks), round, numUnresolved)
+				}
+			default:
+			}
+			if totalUnresolved < numUnresolved {
+				totalUnresolved = numUnresolved
+			}
+			if left < 0 || right < 0 {
 				break
 			}
-			if left.NewTick > 0 {
-				left.NewTick--
-				right.NewTick++
-			} else {
-				left.NewTick++
-				right.NewTick += 2
+
+			for left != 0 && records[left].NewTime-records[left-1].NewTime < SkillCooldown {
+				left--
 			}
-			left.NewTime = mtrk.ConvertAbsTickToDuration(left.NewTick)
-			right.NewTime = mtrk.ConvertAbsTickToDuration(right.NewTick)
+			for right < len(records)-1 && records[right+1].NewTime-records[right].NewTime < SkillCooldown {
+				right++
+			}
+			if records[left].NewTick > 0 {
+				records[left].NewTick--
+				records[right].NewTick++
+			} else {
+				records[left].NewTick++
+				records[right].NewTick += 2
+			}
+			records[left].NewTime = mtrk.ConvertAbsTickToDuration(records[left].NewTick)
+			records[right].NewTime = mtrk.ConvertAbsTickToDuration(records[right].NewTick)
+		}
+		if totalUnresolved != 1 {
+			fmt.Printf("\rTrack %d/%d, round #%d, %d conflicts resolved.  \n", trackID+1, len(seq.Tracks), round, totalUnresolved)
+		} else {
+			fmt.Printf("\rTrack %d/%d, round #%d, %d conflict resolved.  \n", trackID+1, len(seq.Tracks), round, totalUnresolved)
 		}
 		maxTick := int64(0)
 		for _, record := range records {
@@ -145,6 +201,7 @@ func main() {
 		})
 		mtrk.ConvertAbsToDeltaTick()
 	}
+	progressTicker.Stop()
 	err = seq.EncodeSMF(output)
 	if err != nil {
 		log.Fatalln(err)
