@@ -73,7 +73,7 @@ func main() {
 		fmt.Print("Usage: midi-optimizer INPUT.mid [OUTPUT.mid]\n\n")
 		os.Exit(1)
 	case 1:
-		fmt.Printf("Usage: %s INPUT.mid OUTPUT.mid\n\n", os.Args[0])
+		fmt.Printf("Usage: %s INPUT.mid [OUTPUT.mid]\n\n", os.Args[0])
 		os.Exit(1)
 	case 2:
 		input, err = os.Open(os.Args[1])
