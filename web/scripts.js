@@ -213,7 +213,7 @@
         var value = this.value || "0";
         doSynthInstrumentUpdate();
         requestHTTP("PUT", "/midi-output-transpose", value, function onLoad(event, response) {
-            reportMessage("MIDI patch changed to " + value + ".");
+            reportMessage("MIDI transpose changed to " + value + ".");
         }, function onError(event, error) {
             reportError(error);
         })
