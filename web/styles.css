@@ -12,6 +12,16 @@ textarea,
     line-height: 1.2;
 }
 
+[lang="ja"] body,
+[lang="ja"] button,
+[lang="ja"] input,
+[lang="ja"] select,
+[lang="ja"] textarea,
+[lang="ja"] .pure-g [class *="pure-u"] {
+    font-family: 'Noto Sans JP', sans-serif;
+    line-height: 1.2;
+}
+
 .pure-g [class *="pure-u"] {
     box-sizing: border-box;
 }
