@@ -80,7 +80,7 @@ var defaultPreset = preset{
 		0x2B: {false, false, false, 'P'},
 		0x2C: {false, false, false, 'M'},
 		0x2D: {false, false, false, 'A'},
-		0x2E: {false, false, false, ','},
+		0x2E: {false, false, false, 0xbc},
 		0x2F: {false, false, false, 'S'},
 
 		0x30: {false, false, false, '9'},
@@ -111,7 +111,7 @@ var defaultPreset = preset{
 
 		0x48: {false, false, false, '8'},
 	},
-	EmergencyStop: &keybindingPreset{false, false, false, 0x1b},
+	EmergencyStop: &keybindingPreset{true, false, false, 0x1b},
 	WebListenAddr: ":65300",
 	WebUsername:   "",
 	WebPassword:   "",
