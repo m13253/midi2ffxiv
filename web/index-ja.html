@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MIDI2FFXIVコントロールパネル</title>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/pure-min.css" integrity="sha384-nn4HPE8lTHyVtfCBi5yW9d20FjT8BJwUXyWZT9InLYax14RDjBj46LmSztkmNP9w" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://unpkg.com/purecss@1.0.0/build/grids-responsive-min.css" integrity="sha384-b92sF+wDNTHrfEtRaYo+EpcA8FUyHOSXrdxKc9XB9kaaX1rSQAgMevW6cYeE5Bdv" crossorigin="anonymous" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="flexbody">
+    <header>
+        <div class="container">
+            <h1>MIDI2FFXIVコントロールパネル</h1>
+        </div>
+    </header>
+    <main>
+        <div class="container pure-g pure-form">
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">MIDI入力デバイス</h2>
+                    <label class="pure-u-1 padding-input" for="midi-input-device">入力デバイス</label>
+                    <br />
+                    <input class="pure-u-1 pure-button round-top" type="button" id="midi-input-refresh" value="更新" />
+                    <br />
+                    <select class="pure-u-1 round-bottom" id="midi-input-device" name="midi-input-device" size="9">
+                        <option value="-1" selected="selected">(なし)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">エコーデバイス</h2>
+                    <label class="pure-u-1 padding-input" for="midi-output-device">出力デバイス</label>
+                    <br />
+                    <input class="pure-u-1 pure-button round-top" type="button" id="midi-output-refresh" value="更新" />
+                    <br />
+                    <select class="pure-u-1 round-bottom" id="midi-output-device" name="midi-output-device" size="9">
+                        <option value="-1" selected="selected">(なし)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">エコー用の楽器</h2>
+                    <label class="pure-u-1-3 padding-input" for="synth-bank">バンク</label>
+                    <label class="pure-u-1-3 padding-input" for="synth-patch">パッチ</label>
+                    <label class="pure-u-1-3 padding-input" for="synth-transpose">移調</label>
+                    <br />
+                    <input class="pure-u-1-3 round-nw" type="number" id="synth-bank" name="synth-bank" min="0" max="16383" placeholder="0" value="0" />
+                    <input class="pure-u-1-3 round-none" type="number" id="synth-patch" name="synth-patch" min="1" max="128" placeholder="47" value="47" />
+                    <input class="pure-u-1-3 round-ne" type="number" id="synth-transpose" name="synth-transpose" min="-120" max="120" step="12" placeholder="0" value="0" />
+                    <br />
+                    <select class="pure-u-1-1 round-bottom" id="synth-instrument" size="9">
+                        <option value="0:47" selected="selected">ハープ</option>
+                        <option value="0:1">グランドピアノ</option>
+                        <option value="0:26">スティール・ギター／リュート</option>
+                        <option value="0:46">ピッチカート</option>
+                        <option value="0:74">フルート</option>
+                        <option value="0:69">オーボエ</option>
+                        <option value="0:72">クラリネット</option>
+                        <option value="0:73">ピッコロ</option>
+                        <option value="0:76">パンフルート</option>
+                        <option value="0:48">ティンパニ</option>
+                        <option value="8:117">大太鼓</option>
+                        <option value="16:118">小太鼓</option>
+                        <option value="100:113">シンバル</option>
+                    </select>
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">時刻同期</h2>
+                    <label class="pure-u-1 padding-input" for="ntp-server">NTPサーバー</label>
+                    <input class="pure-u-3-4 round-left" id="ntp-server" name="ntp-server" placeholder="ntp.nict.jp" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="ntp-sync" value="同期" />
+                    <br />
+                    <label class="pure-u-1 padding-input" for="current-time">現在時刻：</label>
+                    <input class="pure-u-3-4 round-left" id="current-time" name="current-time" placeholder="--:--:--.--- (非同期)" readonly="readonly" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="current-time-copy" value="コピー" />
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">再生したいMIDIファイル</h2>
+                    <label class="pure-u-1 padding-input" for="midi-file">MIDIファイル</label>
+                    <input class="pure-u-1" type="file" id="midi-file" name="midi-file" accept="audio/midi" />
+                    <br />
+                    <label class="pure-u-1-2 padding-input" for="midi-track-number">トラック</label>
+                    <label class="pure-u-1-2 padding-input" for="midi-offset-ms">オフセット(ms)</label>
+                    <br />
+                    <input class="pure-u-1-2 round-left" type="number" id="midi-track-number" name="midi-track-number" min="0" max="65535" placeholder="1" value="1" />
+                    <input class="pure-u-1-2 round-right" type="number" id="midi-offset-ms" name="midi-offset-ms" step="any" placeholder="0" value="0" />
+                </div>
+            </div>
+            <div class="pure-u-1 pure-u-md-1-3">
+                <div class="margin-0_5 pure-g">
+                    <h2 class="pure-u-1">スケジューラー</h2>
+                    <label class="pure-u-1 padding-input" for="sched-start-time">再生開始時刻</label>
+                    <input class="pure-u-3-4 round-left" type="time" step="1" id="sched-start-time" name="sched-start-time" placeholder="--:--:--" />
+                    <input class="pure-u-1-4 pure-button round-right" type="button" id="sched-set" value="設定" />
+                    <br />
+                    <label class="pure-u-1 padding-input">
+                        <input type="checkbox" id="sched-loop-enabled" /> ループする
+                    </label>
+                    <input class="pure-u-1" id="sched-loop-interval" type="time" step="1" placeholder="--:--:--" />
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <div class="container">
+            <span id="version-info"></span> &copy; 2018 StarBrilliant. Made with &#9829;&#65038; and <a href="https://github.com/m13253/midi2ffxiv">source code</a> available.
+        </div>
+    </footer>
+    <div id="float-container"></div>
+    <script language="javascript" src="scripts-ja.js"></script>
+    <script language="javascript">
+        (function () {
+            "use strict";
+            var el = document.createElement("link");
+            el.setAttribute("rel", "stylesheet");
+            el.setAttribute("href", "https://fonts.googleapis.com/css?family=Noto+Sans+JP&display=swap");
+            el.setAttribute("crossorigin", "anonymous");
+            document.head.appendChild(el);
+        })();
+    </script>
+</body>
+
+</html>

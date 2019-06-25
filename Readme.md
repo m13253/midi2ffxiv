@@ -3,6 +3,9 @@ MIDI2FFXIV
 
 Convert MIDI to bard performance of _Final Fantasy XIV: Stormblood_, featuring multiplayer sync
 
+* [中文](Readme-zh_Hans.md)
+* [日本語](Readme-ja.md)
+
 Usage
 -----
 
@@ -47,9 +50,13 @@ Showcase
 Keybinding
 ----------
 
-Two keybinding presets are included, the default `midi2ffxiv.conf` and the alternate `midi2ffxiv_no_modifier.conf`.
+Three keybinding presets are included, the default `midi2ffxiv.conf` and the alternate `midi2ffxiv_no_modifier.conf`.
 
-- `midi2ffxiv.conf` uses Ctrl and Shift to switch octaves, but the may have issues when the frame rate is low.
+This fork version is compatible to [Bard Midi Player](http://bmp.sqnya.se/) key bindings. 
+
+![Key Binding](binding.png)
+
+- `midi2ffxiv_original.conf` uses Ctrl and Shift to switch octaves, but the may have issues when the frame rate is low.
 - `midi2ffxiv_no_modifier.conf` uses a full-key map keybinding, you need to change your keybinding:
 
 |      | C | D  | E  | F  | G  | A | B | C+1 |

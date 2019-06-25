@@ -31,7 +31,7 @@ import (
 	"runtime"
 	"time"
 
-	"./winmm"
+	"github.com/m13253/midi2ffxiv/winmm"
 	cgc "github.com/m13253/cgc-go"
 	"golang.org/x/sys/windows"
 )
