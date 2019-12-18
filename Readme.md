@@ -3,6 +3,15 @@ MIDI2FFXIV
 
 Convert MIDI to bard performance of _Final Fantasy XIV: Stormblood_, featuring multiplayer sync
 
+Notice for Patch 5.1
+--------------------
+
+This program is not yet updated for Patch 5.1.
+
+I'm sorry that I might not be able to maintain this project for a few months.
+
+Anyone who are interested can fork my project and improve it.
+
 Usage
 -----
 
