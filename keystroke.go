@@ -30,7 +30,7 @@ import (
 	"log"
 	"time"
 
-	"./user32"
+	"github.com/m13253/midi2ffxiv/user32"
 	cgc "github.com/m13253/cgc-go"
 )
 

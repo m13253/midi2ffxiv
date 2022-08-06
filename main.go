@@ -39,9 +39,9 @@ import (
 	actionqueue "github.com/m13253/actionqueue-go"
 	cgc "github.com/m13253/cgc-go"
 
-	"./kernel32"
-	"./user32"
-	"./winmm"
+	"github.com/m13253/midi2ffxiv/kernel32"
+	"github.com/m13253/midi2ffxiv/user32"
+	"github.com/m13253/midi2ffxiv/winmm"
 )
 
 var versionInfo string
