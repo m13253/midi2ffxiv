@@ -1,0 +1,4 @@
+github.com/beevik/etree v1.2.0 h1:l7WETslUG/T+xOPs47dtd6jov2Ii/8/OjCldk5fYfQw=
+github.com/beevik/etree v1.2.0/go.mod h1:aiPf89g/1k3AShMVAzriilpcE4R/Vuor90y83zVZWFc=
+github.com/m13253/midimark v0.0.0-20231125183016-7e637b008886 h1:fIM62X4xLVS3Gkt8Ftxzsf67k+RJEH6/VZPWFnc66Ds=
+github.com/m13253/midimark v0.0.0-20231125183016-7e637b008886/go.mod h1:hPAzMim/hkwTA7Vq3OV9+or2Th0eLdqH4v2hf/iq4Jc=
