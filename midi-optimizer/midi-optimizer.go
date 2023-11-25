@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	SkillCooldown time.Duration = 25*time.Millisecond - 1
+	SkillCooldown time.Duration = 125*time.Millisecond - 1
 )
 
 type NoteOnRecord struct {
